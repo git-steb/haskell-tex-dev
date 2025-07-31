@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Dockerfile.dev'
-      - 'contracts/scripts/requirements.txt'
+      - 'Dockerfile'
+      - 'requirements.txt'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
     inputs:
