@@ -180,4 +180,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD ghc --version && cabal --version && stack --version && ormolu --version && python3 --version && pandoc --version || exit 1
 
 # Default command
-CMD ["/bin/bash"] 
+CMD ["/bin/bash"] # Trigger rebuild
