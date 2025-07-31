@@ -40,23 +40,53 @@ docker run --rm \
 ## 📦 Included Tools
 
 ### Haskell Toolchain
-- **GHC**: 9.12.2 (via GHCup)
-- **Cabal**: 3.16.0.0
+- **GHC**: 9.12.2 (latest stable via GHCup)
+- **Cabal**: 3.16.0.0 (modern build system)
+- **Stack**: 3.7.1 (reproducible builds)
+- **Ormolu**: Latest (deterministic code formatting, installed from official binary)
 - **HLS**: 2.10.0.0 (Haskell Language Server)
 
 ### LaTeX Environment
-- **TeXLive**: 2025 (full distribution)
+- **TeXLive**: 2023 (recommended distribution via apt)
 - **Pandoc**: Latest version for document conversion
-- **Essential Packages**: algorithm2e, minted, biblatex, biber, microtype, booktabs, colortbl, pdflscape, environ, trimspaces, ulem, xcolor, soul, listings, fancyvrb, framed, lineno, xpatch, etoolbox
+- **Essential Packages**: Included in texlive-latex-recommended and texlive-latex-extra (algorithm2e, minted, biblatex, biber, microtype, booktabs, colortbl, pdflscape, environ, trimspaces, ulem, xcolor, soul, listings, fancyvrb, framed, lineno, xpatch, etoolbox)
 
 ### Python Support
-- **Python**: 3.11
+- **Python**: 3.12 (via virtual environment)
 - **Packages**: pyyaml, click, colorama, jinja2, markdown, beautifulsoup4, lxml, requests
 
 ### System Tools
 - **Build Tools**: build-essential, libgmp-dev, zlib1g-dev, libtinfo-dev, libffi-dev
 - **Development**: git, curl, wget, sudo
 - **Fonts**: fonts-lmodern
+
+## 🔥 Tool Choices - Why These Work
+
+### **GHC 9.12.2** - Latest Stable
+- Recent enough for modern libraries
+- Excellent performance improvements
+- Full support for latest language extensions
+
+### **Cabal 3.16.0.0** - Modern Build System
+- Matches GHC 9.12 series perfectly
+- Better solver behavior for dependency resolution
+- New-style builds with improved caching
+
+### **Stack 3.7.1** - Reproducible Builds
+- Perfect backup for complex dependency scenarios
+- Excellent for team projects requiring specific snapshots
+- Great for projects that need reproducible builds
+
+### **Ormolu** - Deterministic Formatting
+- Installed from official binary release (latest version)
+- No configuration debates - consistent style
+- Fast and reliable
+- Integrates well with modern tooling
+
+### **HLS 2.10.0.0** - IDE Excellence
+- Matches your GHC version for smooth integration
+- Provides full IDE features: completion, refactoring, error checking
+- Automatically detects GHC version and provides appropriate support
 
 ## 🏗️ Building Locally
 
