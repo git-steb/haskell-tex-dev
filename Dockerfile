@@ -16,10 +16,18 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# ----- 2. GHCup Install -----
+# ----- 2. Create Non-Root Dev User First -----
+RUN useradd -m -s /bin/bash dev && \
+    usermod -aG sudo dev && \
+    echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# ----- 3. GHCup Install as Dev User -----
+USER dev
+WORKDIR /home/dev
+
 RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 sh
 
-ENV PATH="/root/.ghcup/bin:${PATH}"
+ENV PATH="/home/dev/.ghcup/bin:${PATH}"
 
 RUN ghcup install ghc 9.12.2 && \
     ghcup set ghc 9.12.2 && \
@@ -27,12 +35,17 @@ RUN ghcup install ghc 9.12.2 && \
     ghcup set cabal 3.16.0.0 && \
     ghcup install hls 2.10.0.0 && \
     ghcup set hls 2.10.0.0 && \
+    ghcup install stack 3.7.1 && \
+    ghcup set stack 3.7.1 && \
+    ghcup install ormolu 0.8.0.0 && \
+    ghcup set ormolu 0.8.0.0 && \
     cabal update
 
-# ----- 3. Python Dependencies -----
+# ----- 4. Python Dependencies -----
 COPY requirements.txt /tmp/requirements.txt
 
-# ----- 4. Install TeX Live with essential packages -----
+# ----- 5. Install TeX Live with essential packages -----
+USER root
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     texlive-full \
     texlive-latex-extra \
@@ -44,7 +57,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# ----- 5. Install Pandoc and essential TeX packages -----
+# ----- 6. Install Pandoc and essential TeX packages -----
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     pandoc \
     && apt-get clean \
@@ -74,35 +87,27 @@ RUN tlmgr update --self && \
     etoolbox \
     && tlmgr path add
 
-# ----- 6. Set up workspace -----
-WORKDIR /workspace
-
-# ----- 7. Create non-root user for development -----
-RUN useradd -m -s /bin/bash dev && \
-    usermod -aG sudo dev && \
-    echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-# ----- 8. Set up user environment -----
+# ----- 7. Set up Python virtual environment -----
 USER dev
 WORKDIR /home/dev
 
-# Add GHCup to user PATH
-RUN echo 'export PATH="/root/.ghcup/bin:$PATH"' >> ~/.bashrc && \
-    echo 'export PATH="/root/.ghcup/bin:$PATH"' >> ~/.profile
-
-# ----- 9. Set up Python virtual environment -----
+# Create and activate virtual environment
 RUN python3 -m venv /home/dev/venv && \
     echo 'source /home/dev/venv/bin/activate' >> ~/.bashrc && \
     echo 'source /home/dev/venv/bin/activate' >> ~/.profile
 
-# Activate virtual environment and install Python packages
+# Install Python packages in virtual environment
+SHELL ["/bin/bash", "-c"]
 RUN source /home/dev/venv/bin/activate && \
     pip install --upgrade pip && \
     pip install -r /tmp/requirements.txt
 
-# ----- 10. Health check -----
+# ----- 8. Set up workspace -----
+WORKDIR /workspace
+
+# ----- 9. Health check -----
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ghc --version && cabal --version && python3 --version && pandoc --version || exit 1
+    CMD ghc --version && cabal --version && stack --version && ormolu --version && python3 --version && pandoc --version || exit 1
 
 # Default command
 CMD ["/bin/bash"] 
