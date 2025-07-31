@@ -30,7 +30,7 @@ RUN ghcup install ghc 9.12.2 && \
     cabal update
 
 # ----- 3. Python Dependencies -----
-COPY contracts/scripts/requirements.txt /tmp/requirements.txt
+COPY requirements.txt /tmp/requirements.txt
 RUN python3 -m pip install --upgrade pip && \
     pip install -r /tmp/requirements.txt
 
