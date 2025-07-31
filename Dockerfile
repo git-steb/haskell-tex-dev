@@ -31,8 +31,6 @@ RUN ghcup install ghc 9.12.2 && \
 
 # ----- 3. Python Dependencies -----
 COPY requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install --upgrade pip && \
-    pip install -r /tmp/requirements.txt
 
 # ----- 4. Install TeX Live with essential packages -----
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -92,7 +90,17 @@ WORKDIR /home/dev
 RUN echo 'export PATH="/root/.ghcup/bin:$PATH"' >> ~/.bashrc && \
     echo 'export PATH="/root/.ghcup/bin:$PATH"' >> ~/.profile
 
-# ----- 9. Health check -----
+# ----- 9. Set up Python virtual environment -----
+RUN python3 -m venv /home/dev/venv && \
+    echo 'source /home/dev/venv/bin/activate' >> ~/.bashrc && \
+    echo 'source /home/dev/venv/bin/activate' >> ~/.profile
+
+# Activate virtual environment and install Python packages
+RUN source /home/dev/venv/bin/activate && \
+    pip install --upgrade pip && \
+    pip install -r /tmp/requirements.txt
+
+# ----- 10. Health check -----
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD ghc --version && cabal --version && python3 --version && pandoc --version || exit 1
 
