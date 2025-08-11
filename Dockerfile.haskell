@@ -148,3 +148,4 @@ USER dev
 CMD ["/bin/bash"]
 # Trigger build
 # Trigger build with full-latest fix
+# Trigger Docker build
