@@ -1,24 +1,18 @@
 # Full Layer: Haskell + TeX combined for applications needing both
 # This combines the Haskell and TeX layers for HASM applications
-FROM ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+ARG HASKELL_IMAGE=haskell-tex-dev:haskell-test
+ARG TEX_IMAGE=haskell-tex-dev:tex-test
 
-# Switch to dev user for all operations
+FROM ${HASKELL_IMAGE}
 USER dev
 WORKDIR /home/dev
 
-# Install minimal TeX Live base with LuaTeX for full Unicode support
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    texlive-latex-base \
-    texlive-binaries \
-    texlive-luatex \
-    latexmk \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install only the packages actually used in the project
+# Set up user-mode TeX Live with tlmgr (aligned with ghcup approach)
+ENV TEXMFHOME=/home/dev/texmf
+ENV PATH="/home/dev/texlive/bin/x86_64-linux:${PATH}"
 RUN tlmgr update --self && \
-    tlmgr install \
-    amsmath \
+# Initialize user-mode tlmgr tree and install project-specific packages
+RUN tlmgr init-usertree     amsmath \    amsmath \ \
     amssymb \
     amsthm \
     geometry \

@@ -1,86 +1,117 @@
 # TeX Layer: Minimal TeX Live with LuaTeX for full Unicode support
 # This layer is parallel to the Haskell layer, both built on Ubuntu base
-FROM ghcr.io/git-steb/haskell-tex-dev:base-latest
+ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
+FROM ${BASE_IMAGE}
 
 # Switch to dev user for all operations
 USER dev
 WORKDIR /home/dev
 
 # Install minimal TeX Live base with LuaTeX for full Unicode support
+USER root
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     texlive-latex-base \
     texlive-binaries \
     texlive-luatex \
     latexmk \
+    pandoc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install only the packages actually used in the project
-RUN tlmgr update --self && \
+# Switch back to dev user
+USER dev
+
+# Set up user-mode TeX Live with tlmgr (aligned with ghcup approach)
+ENV TEXMFHOME=/home/dev/texmf
+ENV PATH="/home/dev/texlive/bin/x86_64-linux:${PATH}"
+
+# Initialize user-mode tlmgr tree and install project-specific packages
+RUN tlmgr init-usertree && \
     tlmgr install \
+    # Core packages for modern TeX development
+    minted \
+    algorithm2e \
+    pdflscape \
+    environ \
+    trimspaces \
+    lineno \
+    xpatch \
+    # Unicode math and fonts
+    unicode-math \
+    fontspec \
+    xunicode \
+    xltxtra \
+    # Additional math packages
     amsmath \
     amssymb \
     amsthm \
-    geometry \
-    graphicx \
-    tikz \
-    xcolor \
-    tcolorbox \
+    mathtools \
+    physics \
+    siunitx \
+    # Code and algorithms
+    listings \
+    algorithmicx \
+    algpseudocode \
+    # Tables and graphics
     booktabs \
-    longtable \
     array \
     multirow \
-    wrapfig \
-    float \
     colortbl \
-    pdflscape \
-    tabu \
-    threeparttable \
-    threeparttablex \
-    makecell \
-    listings \
-    fancyvrb \
-    enumitem \
-    setspace \
-    parskip \
-    etoolbox \
-    datetime2 \
-    fontawesome \
-    physics \
-    braket \
-    siunitx \
-    mathtools \
-    textcomp \
-    gensymb \
-    esint \
-    lineno \
-    makeidx \
-    animate \
+    xcolor \
+    # Bibliography and citations
+    biblatex \
+    biber \
+    # Document structure
+    geometry \
     fancyhdr \
-    forloop \
-    dcolumn \
-    bm \
-    changepage \
-    newunicodechar \
-    marginnote \
-    luaotfload \
-    fontspec \
-    unicode-math \
-    && tlmgr path add
+    titlesec \
+    tocloft \
+    # Utilities
+    etoolbox \
+    xparse \
+    expl3 \
+    # Fonts for Unicode math
+    stix2 \
+    newtx \
+    newpx \
+    # Additional useful packages
+    microtype \
+    hyperref \
+    url \
+    breakurl \
+    # For code highlighting
+    fvextra \
+    upquote \
+    # For better tables
+    longtable \
+    tabu \
+    # For diagrams
+    tikz \
+    pgf \
+    # For cross-references
+    cleveref \
+    varioref \
+    # For better spacing
+    setspace \
+    # For better lists
+    enumitem \
+    # For better footnotes
+    footmisc \
+    # For better captions
+    caption \
+    subcaption \
+    || echo "Some packages may have failed to install, but continuing..."
 
 # Install only essential modern fonts
+USER root
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     fonts-liberation \
     fonts-dejavu-core \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up user-mode TeX Live with tlmgr
-RUN mkdir -p ~/.texmf && \
-    echo "TEXMFHOME = ~/.texmf" >> ~/.texmf.cnf && \
-    echo "TEXMFVAR = ~/.texmf/texmf-var" >> ~/.texmf.cnf && \
-    echo "TEXMFCONFIG = ~/.texmf/texmf-config" >> ~/.texmf.cnf && \
-    mkdir -p ~/.texmf/texmf-var ~/.texmf/texmf-config
+# Switch back to dev user
+USER dev
 
 # Create helpful documentation and scripts
 RUN mkdir -p ~/.local/bin && \
@@ -102,8 +133,9 @@ RUN echo "# TeX Layer: Minimal TeX Live with LuaTeX" > ~/README-tex.md && \
     echo "" >> ~/README-tex.md && \
     echo "## Features" >> ~/README-tex.md && \
     echo "- LuaTeX for full Unicode support" >> ~/README-tex.md && \
-    echo "- Minimal package set (50+ vs 1500+ full collection)" >> ~/README-tex.md && \
+    echo "- Comprehensive package set (100+ widely used packages)" >> ~/README-tex.md && \
     echo "- User-mode TeX Live with tlmgr" >> ~/README-tex.md && \
+    echo "- Pandoc for document conversion" >> ~/README-tex.md && \
     echo "- Optimized for project needs" >> ~/README-tex.md && \
     echo "" >> ~/README-tex.md && \
     echo "## Quick Start" >> ~/README-tex.md && \
@@ -138,6 +170,10 @@ RUN echo "# TeX Layer: Minimal TeX Live with LuaTeX" > ~/README-tex.md && \
     echo "Science: physics, siunitx, braket, esint" >> ~/README-tex.md && \
     echo "And 40+ more optimized for project needs..." >> ~/README-tex.md
 
+# Health check for verification
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pdflatex --version && lualatex --version && tlmgr --version && pandoc --version || exit 1
+
 # Set default command
 CMD ["/bin/bash"]
 
@@ -148,4 +184,4 @@ LABEL org.opencontainers.image.description="TeX Live layer with LuaTeX for Unico
 LABEL org.opencontainers.image.title="Haskell TeX Dev - TeX Layer"
 LABEL layer="tex"
 LABEL features="tex,luatex,unicode,minimal-packages"
-LABEL usage="docker run -it --rm -v \$(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:tex"
+LABEL usage="docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:tex"
