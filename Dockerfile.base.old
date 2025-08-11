@@ -19,8 +19,20 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     wget \
     git \
     build-essential \
+    libgmp-dev \
+    libffi-dev \
+    libncurses5-dev \
+    libtinfo5 \
+    libgmp10 \
+    libffi8 \
+    libncurses6 \
+    ca-certificates \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nodejs \
+    npm \
     && apt-get clean \
-    tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Create dev user with sudo access
@@ -30,14 +42,16 @@ RUN useradd -m -s /bin/bash -u 1001 dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Switch to dev user for all operations
-
-# Create workspace directory
-RUN mkdir -p /workspace && chown dev:dev /workspace
-# Switch to dev user for all operations
 USER dev
 WORKDIR /home/dev
 
+# Set up Python virtual environment for CI tools
+RUN python3 -m venv ~/.ci-venv && \
+    echo 'source ~/.ci-venv/bin/activate' >> ~/.bashrc && \
+    echo 'export PATH="$HOME/.ci-venv/bin:$PATH"' >> ~/.bashrc
+
 # Create workspace directory
+RUN mkdir -p /workspace
 
 # Create helpful documentation
 RUN echo "# Ubuntu Base for Parallel TeX and Haskell Layers" > ~/README.md && \
