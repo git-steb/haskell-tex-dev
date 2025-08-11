@@ -1,0 +1,16 @@
+name: ping
+on: 
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+jobs:
+  ok:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Actions
+        run: echo "actions alive"
+      - name: Show environment
+        run: |
+          echo "GitHub SHA: ${{ github.sha }}"
+          echo "GitHub ref: ${{ github.ref }}"
+          echo "GitHub event: ${{ github.event_name }}"
