@@ -1,17 +1,17 @@
 # Haskell Layer: GHC 9.12.2 with native WASM support
 # This layer is parallel to the TeX layer, both built on Ubuntu base
 # Can be combined with TeX layer when needed (e.g., for HASM applications)
-FROM ghcr.io/git-steb/haskell-tex-dev:base-latest
+ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
 
+FROM ${BASE_IMAGE}
 # Build arguments for flexible toolchain versions
 ARG GHC_VERSION=9.12.2
 ARG CABAL_VERSION=3.16.0.0
 ARG HLS_VERSION=2.10.0.0
 ARG STACK_VERSION=3.7.1
 
-# Switch to dev user for all operations
-USER dev
 WORKDIR /home/dev
+USER root
 
 # Install Python and Node.js for development tools
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -23,6 +23,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+USER dev
 # Set up Python virtual environment for CI tools
 RUN python3 -m venv ~/.ci-venv && \
     echo 'source ~/.ci-venv/bin/activate' >> ~/.bashrc && \
