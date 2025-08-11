@@ -13,6 +13,21 @@ ARG STACK_VERSION=3.7.1
 USER dev
 WORKDIR /home/dev
 
+# Install Python and Node.js for development tools
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nodejs \
+    npm \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up Python virtual environment for CI tools
+RUN python3 -m venv ~/.ci-venv && \
+    echo 'source ~/.ci-venv/bin/activate' >> ~/.bashrc && \
+    echo 'export PATH="$HOME/.ci-venv/bin:$PATH"' >> ~/.bashrc
+
 # Install GHCup and Haskell toolchain
 RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 sh
 
@@ -30,7 +45,7 @@ RUN ghcup install ghc ${GHC_VERSION} && \
     ghcup set stack ${STACK_VERSION}
 
 # Install Ormolu (Haskell formatter)
-RUN cabal install ormolu
+RUN cabal install ormolu pandoc
 
 # Set up Cabal configuration
 RUN mkdir -p ~/.cabal && \
