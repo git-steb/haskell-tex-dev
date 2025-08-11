@@ -1,0 +1,115 @@
+# Haskell Layer: GHC 9.12.2 with native WASM support
+# This layer is parallel to the TeX layer, both built on Ubuntu base
+# Can be combined with TeX layer when needed (e.g., for HASM applications)
+FROM ghcr.io/git-steb/haskell-tex-dev:base-latest
+
+# Build arguments for flexible toolchain versions
+ARG GHC_VERSION=9.12.2
+ARG CABAL_VERSION=3.16.0.0
+ARG HLS_VERSION=2.10.0.0
+ARG STACK_VERSION=3.7.1
+
+# Switch to dev user for all operations
+USER dev
+WORKDIR /home/dev
+
+# Install GHCup and Haskell toolchain
+RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 sh
+
+# Add GHCup to PATH
+ENV PATH="/home/dev/.ghcup/bin:$PATH"
+
+# Install specific Haskell toolchain versions
+RUN ghcup install ghc ${GHC_VERSION} && \
+    ghcup set ghc ${GHC_VERSION} && \
+    ghcup install cabal ${CABAL_VERSION} && \
+    ghcup set cabal ${CABAL_VERSION} && \
+    ghcup install hls ${HLS_VERSION} && \
+    ghcup set hls ${HLS_VERSION} && \
+    ghcup install stack ${STACK_VERSION} && \
+    ghcup set stack ${STACK_VERSION}
+
+# Install Ormolu (Haskell formatter)
+RUN cabal install ormolu
+
+# Set up Cabal configuration
+RUN mkdir -p ~/.cabal && \
+    echo "repository hackage.haskell.org" > ~/.cabal/config && \
+    echo "  url: https://hackage.haskell.org/" >> ~/.cabal/config && \
+    echo "  secure: True" >> ~/.cabal/config && \
+    echo "  root-keys:" >> ~/.cabal/config && \
+    echo "    fe331502606802feac15e51d866189e7d695e7d6c6bdb4d250dc2d9c3b79c41" >> ~/.cabal/config && \
+    echo "    a5a16f72b99d2080c7c16f64e8e56f5c5d2626b1352f83f60ce30d1235fde874" >> ~/.cabal/config && \
+    echo "    cb3ec9cc13b5a7b5ab7b51c6f12a4f69e3314d83eac3c0411a48cd2e12ed4ce5" >> ~/.cabal/config && \
+    echo "    a5a16f72b99d2080c7c16f64e8e56f5c5d2626b1352f83f60ce30d1235fde874" >> ~/.cabal/config && \
+    echo "    cb3ec9cc13b5a7b5ab7b51c6f12a4f69e3314d83eac3c0411a48cd2e12ed4ce5" >> ~/.cabal/config && \
+    echo "    fe331502606802feac15e51d866189e7d695e7d6c6bdb4d250dc2d9c3b79c41" >> ~/.cabal/config && \
+    echo "  key-threshold: 3" >> ~/.cabal/config
+
+# Update Cabal index
+RUN cabal update
+
+# Create helpful documentation and scripts
+RUN mkdir -p ~/.local/bin && \
+    echo '#!/bin/bash' > ~/.local/bin/show-haskell-versions && \
+    echo 'echo "=== Haskell Toolchain ==="' >> ~/.local/bin/show-haskell-versions && \
+    echo 'ghc --version' >> ~/.local/bin/show-haskell-versions && \
+    echo 'cabal --version' >> ~/.local/bin/show-haskell-versions && \
+    echo 'hls --version' >> ~/.local/bin/show-haskell-versions && \
+    echo 'stack --version' >> ~/.local/bin/show-haskell-versions && \
+    echo 'echo ""' >> ~/.local/bin/show-haskell-versions && \
+    echo 'echo "=== WASM Support ==="' >> ~/.local/bin/show-haskell-versions && \
+    echo 'ghc --supported-targets | grep wasm || echo "WASM target not available"' >> ~/.local/bin/show-haskell-versions && \
+    chmod +x ~/.local/bin/show-haskell-versions
+
+# Add local bin to PATH
+ENV PATH="/home/dev/.local/bin:$PATH"
+
+# Create usage documentation
+RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "## Features" >> ~/README-haskell.md && \
+    echo "- GHC 9.12.2 with native WebAssembly support" >> ~/README-haskell.md && \
+    echo "- Cabal 3.16.0.0 for package management" >> ~/README-haskell.md && \
+    echo "- HLS 2.10.0.0 for IDE support" >> ~/README-haskell.md && \
+    echo "- Stack 3.7.1 for project management" >> ~/README-haskell.md && \
+    echo "- Ormolu for code formatting" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "## Quick Start" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### Check Haskell versions:" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "show-haskell-versions" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### Create new project:" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "cabal init my-project" >> ~/README-haskell.md && \
+    echo "cd my-project" >> ~/README-haskell.md && \
+    echo "cabal build" >> ~/README-haskell.md && \
+    echo "cabal run" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### WebAssembly compilation:" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "ghc -target wasm32-wasi -o app.wasm Main.hs" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### Add TeX support (for HASM applications):" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "# Use combined image with TeX layer" >> ~/README-haskell.md && \
+    echo "docker run -it --rm -v \$(pwd):/workspace \\" >> ~/README-haskell.md && \
+    echo "  ghcr.io/git-steb/haskell-tex-dev:full" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md
+
+# Set default command
+CMD ["/bin/bash"]
+
+# Labels for better image management
+LABEL maintainer="git-steb"
+LABEL org.opencontainers.image.source="https://github.com/git-steb/haskell-tex-dev"
+LABEL org.opencontainers.image.description="Haskell layer with GHC 9.12.2 and WASM support"
+LABEL org.opencontainers.image.title="Haskell TeX Dev - Haskell Layer"
+LABEL layer="haskell"
+LABEL features="haskell,ghc,wasm,cabal,stack,hls"
+LABEL usage="docker run -it --rm -v \$(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:haskell"
