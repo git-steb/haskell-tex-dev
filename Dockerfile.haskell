@@ -146,3 +146,4 @@ USER dev
 
 # Set default command
 CMD ["/bin/bash"]
+# Trigger build
