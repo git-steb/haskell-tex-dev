@@ -30,7 +30,7 @@ RUN python3 -m venv ~/.ci-venv && \
     echo 'export PATH="$HOME/.ci-venv/bin:$PATH"' >> ~/.bashrc
 
 # Install GHCup and Haskell toolchain
-RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 sh
+RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 GHCUP_INSTALL_BASE_PREFIX=/home/dev sh
 
 # Add GHCup to PATH
 ENV PATH="/home/dev/.ghcup/bin:$PATH"
@@ -45,8 +45,6 @@ RUN ghcup install ghc ${GHC_VERSION} && \
     ghcup install stack ${STACK_VERSION} && \
     ghcup set stack ${STACK_VERSION}
 
-# Install Ormolu (Haskell formatter)
-RUN cabal install ormolu pandoc
 
 # Set up Cabal configuration
 RUN mkdir -p ~/.cabal && \
@@ -60,6 +58,8 @@ RUN mkdir -p ~/.cabal && \
     echo "    a5a16f72b99d2080c7c16f64e8e56f5c5d2626b1352f83f60ce30d1235fde874" >> ~/.cabal/config && \
     echo "    cb3ec9cc13b5a7b5ab7b51c6f12a4f69e3314d83eac3c0411a48cd2e12ed4ce5" >> ~/.cabal/config && \
     echo "    fe331502606802feac15e51d866189e7d695e7d6c6bdb4d250dc2d9c3b79c41" >> ~/.cabal/config && \
+# Install Ormolu (Haskell formatter)
+RUN cabal install ormolu
     echo "  key-threshold: 3" >> ~/.cabal/config
 
 # Update Cabal index
