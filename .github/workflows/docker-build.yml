@@ -45,3 +45,4 @@ jobs:
 
       - name: Verify tag
         run: docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:full-latest
+# Trigger workflow
