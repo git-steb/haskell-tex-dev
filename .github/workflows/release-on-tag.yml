@@ -28,7 +28,7 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.ref_name }}   # v1.1.0
+            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.ref_name }}
             ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
 
       # Build & push haskell image with the semver tag (and a SHA tag)
@@ -42,7 +42,7 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/git-steb/haskell-tex-dev:${{ github.ref_name }}   # v1.1.0
+            ghcr.io/git-steb/haskell-tex-dev:${{ github.ref_name }}
             ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
 
       # Promote stable aliases to the same digest (no rebuild)
