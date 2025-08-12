@@ -24,12 +24,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # build/push haskell layer
+      # Build base image first
+      - name: Build base image
+        id: base
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.base
+          push: true
+          tags: |
+            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
+            ghcr.io/git-steb/haskell-tex-dev:base-latest
+          platforms: linux/amd64
+
+      # Build haskell image using the base image
       - id: hs
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.haskell
+          build-args: |
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
           push: true
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
