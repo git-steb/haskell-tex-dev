@@ -12,28 +12,24 @@ ARG STACK_VERSION=3.7.1
 
 # Root for system dependencies
 USER root
-USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-build-essential \
-libffi-dev \
-libffi8 \
-libgmp-dev \
-libgmp10 \
-libncurses-dev \
-pkg-config \
-&& apt-get clean \
-&& rm -rf /var/lib/apt/lists/*
-RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libffi-dev \
+    libffi8 \
+    libgmp-dev \
+    libgmp10 \
+    libncurses-dev \
+    pkg-config \
     python3 \
     python3-pip \
     python3-venv \
     nodejs \
     npm \
     && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Add GHCup and Cabal bin to PATH
 
-USER dev
 # Install specific Haskell toolchain versions
 USER dev
 # Note: GHC 9.12.2 uses Ubuntu 22.04 packages (Ubuntu 24.04 packages not yet available)
