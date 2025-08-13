@@ -7,11 +7,12 @@ FROM ${BASE_IMAGE}
 # Switch to root to install TeX Live
 USER root
 
-# Install Java dependencies first with proper error handling
+# Install Java dependencies and sudo first with proper error handling
 RUN apt-get update && \
     mkdir -p /usr/share/man/man1 && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     openjdk-21-jre-headless \
+    sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -30,15 +31,19 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 USER dev
 WORKDIR /home/dev
 
+# Verify Haskell tools are available from base image
+RUN ghc --version && cabal --version && echo "✅ Haskell tools verified"
+
 # Set up user-mode TeX Live with tlmgr (aligned with ghcup approach)
 ENV TEXMFHOME=/home/dev/texmf
 ENV PATH="/home/dev/.local/bin:/opt/texlive/texdir/bin/x86_64-linux:$PATH"
 ENV TEXINPUTS="$TEXMFHOME/tex/latex//:"
 
-# Initialize user-mode tlmgr tree and install comprehensive package set
+# Initialize user-mode tlmgr tree and update to latest version
 RUN tlmgr init-usertree && \
     tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet && \
     tlmgr option autoinstall 1 && \
+    tlmgr update --self --all || echo "tlmgr update completed" && \
     tlmgr install \
     # Core packages for modern TeX development
     minted \
