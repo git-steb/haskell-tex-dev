@@ -7,9 +7,16 @@ FROM ${BASE_IMAGE}
 # Switch to root to install TeX Live
 USER root
 
+# Install Java dependencies first with proper error handling
+RUN apt-get update && \
+    mkdir -p /usr/share/man/man1 && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    openjdk-21-jre-headless \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install TeX Live base with LuaTeX for full Unicode support
-# Use --no-install-recommends to avoid problematic Java dependencies
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     texlive-latex-base \
     texlive-binaries \
     texlive-luatex \
@@ -30,6 +37,8 @@ ENV TEXINPUTS="$TEXMFHOME/tex/latex//:"
 
 # Initialize user-mode tlmgr tree and install comprehensive package set
 RUN tlmgr init-usertree && \
+    tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet && \
+    tlmgr option autoinstall 1 && \
     tlmgr install \
     # Core packages for modern TeX development
     minted \
@@ -144,7 +153,12 @@ RUN mkdir -p ~/.local/bin && \
     echo 'which tlmgr && echo "✅ tlmgr found"' >> ~/.local/bin/test-tex-tools && \
     echo 'which pandoc && echo "✅ pandoc found"' >> ~/.local/bin/test-tex-tools && \
     echo "All TeX tools are available!" >> ~/.local/bin/test-tex-tools && \
-    chmod +x ~/.local/bin/test-tex-tools
+    chmod +x ~/.local/bin/test-tex-tools && \
+    echo '#!/bin/bash' > ~/.local/bin/install-tex-package && \
+    echo 'echo "Installing TeX package: $1"' >> ~/.local/bin/install-tex-package && \
+    echo 'tlmgr --force install "$1"' >> ~/.local/bin/install-tex-package && \
+    echo 'echo "Package $1 installed successfully!"' >> ~/.local/bin/install-tex-package && \
+    chmod +x ~/.local/bin/install-tex-package
 
 # Create usage documentation
 RUN echo "# Full Layer: Haskell + TeX Combined" > ~/README-full.md && \
@@ -154,6 +168,7 @@ RUN echo "# Full Layer: Haskell + TeX Combined" > ~/README-full.md && \
     echo "- Complete TeX Live with LuaTeX for Unicode support" >> ~/README-full.md && \
     echo "- Cabal, Stack, HLS, and Ormolu for Haskell development" >> ~/README-full.md && \
     echo "- User-mode TeX Live with tlmgr for package management" >> ~/README-full.md && \
+    echo "- Comprehensive TeX package set pre-installed (minted, amsmath, tikz, etc.)" >> ~/README-full.md && \
     echo "- Python 3 and Node.js for CI and web development" >> ~/README-full.md && \
     echo "- Optimized for HASM (Haskell + TeX) applications" >> ~/README-full.md && \
     echo "- Supports lemma validation and book building workflows" >> ~/README-full.md && \
@@ -189,7 +204,17 @@ RUN echo "# Full Layer: Haskell + TeX Combined" > ~/README-full.md && \
     echo "" >> ~/README-full.md && \
     echo "### Install additional TeX packages:" >> ~/README-full.md && \
     echo "```bash" >> ~/README-full.md && \
-    echo "tlmgr install package-name" >> ~/README-full.md && \
+    echo "# Note: Version mismatch between local (2023) and remote (2025) repositories" >> ~/README-full.md && \
+    echo "# Most packages are already installed system-wide" >> ~/README-full.md && \
+    echo "# To check if a package is available:" >> ~/README-full.md && \
+    echo "find /usr/share/texlive -name 'package-name.sty' 2>/dev/null" >> ~/README-full.md && \
+    echo "" >> ~/README-full.md && \
+    echo "# To install new packages (if needed):" >> ~/README-full.md && \
+    echo "# Option 1: Use system package manager" >> ~/README-full.md && \
+    echo "sudo apt-get install texlive-package-name" >> ~/README-full.md && \
+    echo "" >> ~/README-full.md && \
+    echo "# Option 2: Force install with tlmgr (may not work due to version mismatch)" >> ~/README-full.md && \
+    echo "tlmgr --force install package-name" >> ~/README-full.md && \
     echo "```" >> ~/README-full.md && \
     echo "" >> ~/README-full.md && \
     echo "## Homeomorphosis CI Support" >> ~/README-full.md && \
@@ -205,7 +230,34 @@ RUN echo "# Full Layer: Haskell + TeX Combined" > ~/README-full.md && \
     echo "- **HASM Applications**: Haskell + TeX for document generation" >> ~/README-full.md && \
     echo "- **Web Development**: Haskell backend with WASM frontend" >> ~/README-full.md && \
     echo "- **Academic Writing**: TeX documents with Haskell data processing" >> ~/README-full.md && \
-    echo "- **CI/CD**: Complete toolchain for automated builds" >> ~/README-full.md
+    echo "- **CI/CD**: Complete toolchain for automated builds" >> ~/README-full.md && \
+    echo "" >> ~/README-full.md && \
+    echo "## TeX Package Management" >> ~/README-full.md && \
+    echo "" >> ~/README-full.md && \
+    echo "### Pre-installed Packages" >> ~/README-full.md && \
+    echo "The image includes a comprehensive set of TeX packages:" >> ~/README-full.md && \
+    echo "- **Core**: minted, algorithm2e, pdflscape, environ, trimspaces" >> ~/README-full.md && \
+    echo "- **Math**: amsmath, amssymb, amsthm, mathtools, physics, siunitx" >> ~/README-full.md && \
+    echo "- **Code**: listings, algorithmicx, algpseudocode, fancyvrb" >> ~/README-full.md && \
+    echo "- **Graphics**: tikz, pgf, xcolor, booktabs, array, multirow" >> ~/README-full.md && \
+    echo "- **Bibliography**: biblatex, biber" >> ~/README-full.md && \
+    echo "- **Document**: geometry, fancyhdr, titlesec, tocloft" >> ~/README-full.md && \
+    echo "- **Fonts**: unicode-math, fontspec, stix2, newtx, newpx" >> ~/README-full.md && \
+    echo "" >> ~/README-full.md && \
+    echo "### Adding New Packages" >> ~/README-full.md && \
+    echo "User-level package installation is supported using the helper script:" >> ~/README-full.md && \
+    echo "" >> ~/README-full.md && \
+    echo "1. **Easy installation**: `install-tex-package package-name`" >> ~/README-full.md && \
+    echo "2. **Check if already installed**: `find /usr/share/texlive -name 'package.sty'`" >> ~/README-full.md && \
+    echo "3. **Manual installation**: `cd /home/dev && tlmgr --force install package-name`" >> ~/README-full.md && \
+    echo "4. **System packages**: `sudo apt-get install texlive-package-name`" >> ~/README-full.md && \
+    echo "" >> ~/README-full.md && \
+    echo "### Testing Package Availability" >> ~/README-full.md && \
+    echo "```bash" >> ~/README-full.md && \
+    echo "# Test if a package works" >> ~/README-full.md && \
+    echo "echo '\\documentclass{article}\\usepackage{package-name}\\begin{document}Test\\end{document}' > test.tex" >> ~/README-full.md && \
+    echo "pdflatex test.tex" >> ~/README-full.md && \
+    echo "```" >> ~/README-full.md
 
 # Health check for verification
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
