@@ -24,9 +24,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Build base image first
-      - name: Build base image
-        id: base
+      # build/push base layer
+      - id: base
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -37,27 +36,44 @@ jobs:
             ghcr.io/git-steb/haskell-tex-dev:base-latest
           platforms: linux/amd64
 
-      # Build haskell image using the base image
+      # build/push haskell layer (Haskell only)
       - id: hs
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.haskell
-          build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
+          build-args: BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
           push: true
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
-            ghcr.io/git-steb/haskell-tex-dev:latest
+            ghcr.io/git-steb/haskell-tex-dev:haskell-latest
           platforms: linux/amd64
 
-      # alias to full-latest (no rebuild)
-      - name: Alias full-latest to haskell digest
-        run: |
-          docker buildx imagetools create \
-            --tag ghcr.io/git-steb/haskell-tex-dev:full-latest \
-            ghcr.io/git-steb/haskell-tex-dev@${{ steps.hs.outputs.digest }}
+      # build/push tex layer (Full image: Haskell + TeX)
+      - id: tex
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.tex
+          build-args: BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
+          push: true
+          tags: |
+            ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }}
+            ghcr.io/git-steb/haskell-tex-dev:tex-latest
+            ghcr.io/git-steb/haskell-tex-dev:latest
+            ghcr.io/git-steb/haskell-tex-dev:v1.2.0
+          platforms: linux/amd64
 
-      - name: Verify tag
-        run: docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:full-latest
-# Trigger workflow
+      - name: Verify all tags
+        run: |
+          echo "Verifying all container tags..."
+          echo "=== Latest (should be full image with Haskell + TeX) ==="
+          docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:latest
+          echo "=== v1.2.0 (should be full image with Haskell + TeX) ==="
+          docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:v1.2.0
+          echo "=== Tex layer ==="
+          docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:tex-latest
+          echo "=== Haskell layer ==="
+          docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+          echo "=== Base layer ==="
+          docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:base-latest
