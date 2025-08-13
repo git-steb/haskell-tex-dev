@@ -5,6 +5,8 @@ on:
 permissions:
   contents: write
   packages: write
+  # needed only if you turn on provenance below:
+  # id-token: write
 
 jobs:
   release:
@@ -18,7 +20,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Build Haskell layer first (needed for TeX layer)
+      # Build Haskell layer first (base for TeX layer)
       - name: Build Haskell layer
         id: haskell
         uses: docker/build-push-action@v6
@@ -27,11 +29,17 @@ jobs:
           file: Dockerfile.haskell
           push: true
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.ref_name }}
+            ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+          # flip these on if you want attestations:
+          # provenance: true
+          # sbom: true
 
-      # Build & push the complete Haskell + TeX image
+      # Build & push the complete Haskell + TeX image (from digest)
       - name: Build complete Haskell + TeX image
         id: build
         uses: docker/build-push-action@v6
@@ -39,22 +47,47 @@ jobs:
           context: .
           file: Dockerfile.tex
           build-args: |
-            BASE_IMAGE=haskell-tex-dev:haskell-${{ github.ref_name }}
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev@${{ steps.haskell.outputs.digest }}
           push: true
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:${{ github.ref_name }}
-            ghcr.io/git-steb/haskell-tex-dev:latest
             ghcr.io/git-steb/haskell-tex-dev:full-${{ github.sha }}
+          # provenance: true
+          # sbom: true
 
-      # Output digest for downstream consumption
-      - name: Output digest for downstream consumption
+      # Promote latest to the exact digest (no rebuild)
+      - name: Alias latest to tag digest
         run: |
-          echo "haskell_digest=${{ steps.haskell.outputs.digest }}" >> $GITHUB_OUTPUT
-          echo "full_digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
-          echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
-          echo "✅ Complete Haskell + TeX image built successfully!"
-          echo "📦 Image: ghcr.io/git-steb/haskell-tex-dev:${{ github.ref_name }}"
-          echo "🔗 Digest: ${{ steps.build.outputs.digest }}"
-          echo "🎯 This image includes both Haskell tools AND TeX tools!"
+          docker buildx imagetools create \
+            --tag ghcr.io/git-steb/haskell-tex-dev:latest \
+            ghcr.io/git-steb/haskell-tex-dev@${{ steps.build.outputs.digest }}
+
+      # Verify alias points to the right digest (fast sanity check)
+      - name: Verify latest alias
+        run: |
+          WANT=${{ steps.build.outputs.digest }}
+          GOT=$(docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:latest | awk '/Digest:/ {print $2; exit}')
+          [ "$WANT" = "$GOT" ] || { echo "latest mismatch $WANT != $GOT"; exit 1; }
+
+      # Human-friendly summary + outputs for downstream jobs
+      - name: Outputs & summary
+        id: out
+        run: |
+          {
+            echo "### Images"
+            echo "- Haskell: \`ghcr.io/git-steb/haskell-tex-dev@${{ steps.haskell.outputs.digest }}\`"
+            echo "- Full:    \`ghcr.io/git-steb/haskell-tex-dev@${{ steps.build.outputs.digest }}\`"
+            echo
+            echo "### Tags"
+            echo "- \`haskell-${{ github.ref_name }}\`, \`haskell-${{ github.sha }}\`, \`haskell-latest\`"
+            echo "- \`${{ github.ref_name }}\`, \`full-${{ github.sha }}\`, \`latest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "haskell_digest=${{ steps.haskell.outputs.digest }}"
+            echo "full_digest=${{ steps.build.outputs.digest }}"
+            echo "tag=${{ github.ref_name }}"
+            echo "sha=${{ github.sha }}"
+          } >> "$GITHUB_OUTPUT"
