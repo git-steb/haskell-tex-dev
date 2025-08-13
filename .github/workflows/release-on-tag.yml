@@ -18,65 +18,43 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Build base image first
-      - name: Build base image
-        id: base
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.base
-          push: true
-          platforms: linux/amd64
-          tags: |
-            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.ref_name }}
-            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
-
-      # Build & push haskell image with the semver tag (and a SHA tag)
-      - id: build
+      # Build Haskell layer first (needed for TeX layer)
+      - name: Build Haskell layer
+        id: haskell
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.haskell
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.ref_name }}
+            ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+
+      # Build & push the complete Haskell + TeX image
+      - name: Build complete Haskell + TeX image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.tex
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.ref_name }}
           push: true
           platforms: linux/amd64
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:${{ github.ref_name }}
-            ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
+            ghcr.io/git-steb/haskell-tex-dev:latest
+            ghcr.io/git-steb/haskell-tex-dev:full-${{ github.sha }}
 
-      # Promote stable aliases to the same digest (no rebuild)
-      - name: Alias latest to tag digest
+      # Output digest for downstream consumption
+      - name: Output digest for downstream consumption
         run: |
-          docker buildx imagetools create \
-            --tag ghcr.io/git-steb/haskell-tex-dev:latest \
-            ghcr.io/git-steb/haskell-tex-dev@${{ steps.build.outputs.digest }}
-
-      - name: Alias base-latest to base digest
-        run: |
-          docker buildx imagetools create \
-            --tag ghcr.io/git-steb/haskell-tex-dev:base-latest \
-            ghcr.io/git-steb/haskell-tex-dev@${{ steps.base.outputs.digest }}
-
-      - name: Verify aliases
-        run: |
-          echo "Verifying latest alias..."
-          WANT=${{ steps.build.outputs.digest }}
-          GOT=$(docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:latest \
-                | awk '/Digest:/ {print $2; exit}')
-          [ "$WANT" = "$GOT" ] || { echo "latest mismatch $WANT != $GOT"; exit 1; }
-          
-          echo "Verifying base-latest alias..."
-          WANT_BASE=${{ steps.base.outputs.digest }}
-          GOT_BASE=$(docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:base-latest \
-                | awk '/Digest:/ {print $2; exit}')
-          [ "$WANT_BASE" = "$GOT_BASE" ] || { echo "base-latest mismatch $WANT_BASE != $GOT_BASE"; exit 1; }
-          
-          echo "✅ All aliases verified successfully"
-
-      - name: Output digests for downstream consumption
-        run: |
-          echo "base_digest=${{ steps.base.outputs.digest }}" >> $GITHUB_OUTPUT
-          echo "haskell_digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+          echo "haskell_digest=${{ steps.haskell.outputs.digest }}" >> $GITHUB_OUTPUT
+          echo "full_digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
           echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "✅ Complete Haskell + TeX image built successfully!"
+          echo "📦 Image: ghcr.io/git-steb/haskell-tex-dev:${{ github.ref_name }}"
+          echo "🔗 Digest: ${{ steps.build.outputs.digest }}"
+          echo "🎯 This image includes both Haskell tools AND TeX tools!"
