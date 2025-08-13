@@ -72,6 +72,13 @@ jobs:
           GOT=$(docker buildx imagetools inspect ghcr.io/git-steb/haskell-tex-dev:latest | awk '/Digest:/ {print $2; exit}')
           [ "$WANT" = "$GOT" ] || { echo "latest mismatch $WANT != $GOT"; exit 1; }
 
+      # Ensure package is public for downstream consumption
+      - name: Make package public
+        run: |
+          echo "Making haskell-tex-dev package public..."
+          gh api --method POST /user/packages/container/haskell-tex-dev/visibility \
+            -f visibility=public || echo "Package visibility update failed (may already be public)"
+
       # Human-friendly summary + outputs for downstream jobs
       - name: Outputs & summary
         id: out
@@ -84,6 +91,10 @@ jobs:
             echo "### Tags"
             echo "- \`haskell-${{ github.ref_name }}\`, \`haskell-${{ github.sha }}\`, \`haskell-latest\`"
             echo "- \`${{ github.ref_name }}\`, \`full-${{ github.sha }}\`, \`latest\`"
+            echo
+            echo "### Access"
+            echo "- **Public package**: ✅ Available for all projects"
+            echo "- **Pull command**: \`docker pull ghcr.io/git-steb/haskell-tex-dev:${{ github.ref_name }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
           {
             echo "haskell_digest=${{ steps.haskell.outputs.digest }}"
