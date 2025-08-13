@@ -39,7 +39,7 @@ jobs:
           context: .
           file: Dockerfile.tex
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.ref_name }}
+            BASE_IMAGE=haskell-tex-dev:haskell-${{ github.ref_name }}
           push: true
           platforms: linux/amd64
           tags: |
