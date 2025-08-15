@@ -64,49 +64,41 @@ COPY deps-list.txt /tmp/deps-list.txt
 # This layer pre-installs common dependencies to speed up project builds
 # These are the most commonly used packages from the homeomorphosis project
 
-# Create a temporary cabal project to pre-install dependencies
-RUN mkdir -p /tmp/preload-deps && cd /tmp/preload-deps
-
-# Create a cabal.project file with common dependencies
-RUN echo "packages: ." > /tmp/preload-deps/cabal.project && \
-    echo "resolver: ghc-9.12.2" >> /tmp/preload-deps/cabal.project && \
-    echo "index-state: 2025-08-15T19:06:45Z" >> /tmp/preload-deps/cabal.project
-
-# Create a minimal cabal file with common dependencies
-RUN echo "cabal-version: 2.0" > /tmp/preload-deps/preload-deps.cabal && \
-    echo "name:                preload-deps" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "version:             0.1.0" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "license:             MIT" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "build-type:          Simple" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "library" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "  hs-source-dirs:      src" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "  default-language:    GHC2021" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "  default-extensions:  OverloadedStrings," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       DeriveGeneric," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       DerivingStrategies," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       GeneralizedNewtypeDeriving," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       StandaloneDeriving," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       LambdaCase," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       MultiWayIf," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       ImportQualifiedPost," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       TypeApplications," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       ScopedTypeVariables," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       NamedFieldPuns," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       RecordWildCards," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       DuplicateRecordFields," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       OverloadedRecordDot," >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "                       DoAndIfThenElse" >> /tmp/preload-deps/preload-deps.cabal && \
-    echo "  build-depends:       $(cat /tmp/deps-list.txt | grep -v '^#' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')" >> /tmp/preload-deps/preload-deps.cabal
-
-# Create minimal source directory
-RUN mkdir -p /tmp/preload-deps/src && \
-    echo 'module PreloadDeps where' > /tmp/preload-deps/src/PreloadDeps.hs
-
-# Pre-install all dependencies (this will be cached in the cabal store)
+# Create a temporary cabal project and pre-install dependencies
 RUN --mount=type=cache,target=/home/dev/.cabal/store \
     --mount=type=cache,target=/home/dev/.cache \
+    mkdir -p /tmp/preload-deps && \
     cd /tmp/preload-deps && \
+    echo "packages: ." > cabal.project && \
+    echo "resolver: ghc-9.12.2" >> cabal.project && \
+    echo "index-state: 2025-08-15T19:06:45Z" >> cabal.project && \
+    echo "cabal-version: 2.0" > preload-deps.cabal && \
+    echo "name:                preload-deps" >> preload-deps.cabal && \
+    echo "version:             0.1.0" >> preload-deps.cabal && \
+    echo "license:             MIT" >> preload-deps.cabal && \
+    echo "build-type:          Simple" >> preload-deps.cabal && \
+    echo "" >> preload-deps.cabal && \
+    echo "library" >> preload-deps.cabal && \
+    echo "  hs-source-dirs:      src" >> preload-deps.cabal && \
+    echo "  default-language:    GHC2021" >> preload-deps.cabal && \
+    echo "  default-extensions:  OverloadedStrings," >> preload-deps.cabal && \
+    echo "                       DeriveGeneric," >> preload-deps.cabal && \
+    echo "                       DerivingStrategies," >> preload-deps.cabal && \
+    echo "                       GeneralizedNewtypeDeriving," >> preload-deps.cabal && \
+    echo "                       StandaloneDeriving," >> preload-deps.cabal && \
+    echo "                       LambdaCase," >> preload-deps.cabal && \
+    echo "                       MultiWayIf," >> preload-deps.cabal && \
+    echo "                       ImportQualifiedPost," >> preload-deps.cabal && \
+    echo "                       TypeApplications," >> preload-deps.cabal && \
+    echo "                       ScopedTypeVariables," >> preload-deps.cabal && \
+    echo "                       NamedFieldPuns," >> preload-deps.cabal && \
+    echo "                       RecordWildCards," >> preload-deps.cabal && \
+    echo "                       DuplicateRecordFields," >> preload-deps.cabal && \
+    echo "                       OverloadedRecordDot," >> preload-deps.cabal && \
+    echo "                       DoAndIfThenElse" >> preload-deps.cabal && \
+    echo "  build-depends:       $(cat /tmp/deps-list.txt | grep -v '^#' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')" >> preload-deps.cabal && \
+    mkdir -p src && \
+    echo 'module PreloadDeps where' > src/PreloadDeps.hs && \
     cabal build --only-dependencies
 
 # Clean up temporary files
