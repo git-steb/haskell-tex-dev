@@ -35,8 +35,14 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install tini
+# Install tini and fixuid for flexible volume mounting
 RUN apt-get update && apt-get install -y tini && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Add fixuid for UID/GID flexibility
+ADD https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz /tmp/
+RUN tar -C /usr/local/bin -xzf /tmp/fixuid-0.6.0-linux-amd64.tar.gz && \
+    mkdir -p /etc/fixuid && \
+    printf "user: dev\ngroup: dev\npaths:\n  - /workspace\n" > /etc/fixuid/config.yml
 
 # Create dev user with sudo access
 RUN useradd -m -s /bin/bash -u 1001 dev && \
@@ -44,15 +50,15 @@ RUN useradd -m -s /bin/bash -u 1001 dev && \
     usermod -aG sudo dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Switch to dev user for all operations
-
 # Create workspace directory
 RUN mkdir -p /workspace && chown dev:dev /workspace
+
+# Set up entrypoint with tini and fixuid
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/fixuid", "-q"]
+
 # Switch to dev user for all operations
 USER dev
 WORKDIR /home/dev
-
-# Create workspace directory
 
 # Create helpful documentation
 RUN echo "# Ubuntu Base for Parallel TeX and Haskell Layers" > ~/README.md && \
@@ -69,6 +75,15 @@ RUN echo "# Ubuntu Base for Parallel TeX and Haskell Layers" > ~/README.md && \
     echo "- **Home**: /home/dev" >> ~/README.md && \
     echo "- **Workspace**: /workspace" >> ~/README.md && \
     echo "- **Python Venv**: ~/.ci-venv" >> ~/README.md && \
+    echo "- **Flexible Volume Mounting**: fixuid for UID/GID flexibility" >> ~/README.md && \
+    echo "- **Process Management**: tini for proper signal handling" >> ~/README.md && \
+    echo "" >> ~/README.md && \
+    echo "## Volume Mounting" >> ~/README.md && \
+    echo "" >> ~/README.md && \
+    echo "This image supports flexible volume mounting with fixuid:" >> ~/README.md && \
+    echo "- Automatically adjusts file ownership for mounted volumes" >> ~/README.md && \
+    echo "- Works with any host UID/GID" >> ~/README.md && \
+    echo "- No need for --user flag or manual permission fixes" >> ~/README.md && \
     echo "" >> ~/README.md && \
     echo "## Next Steps" >> ~/README.md && \
     echo "" >> ~/README.md && \
@@ -87,4 +102,5 @@ LABEL org.opencontainers.image.title="Haskell TeX Dev Base"
 LABEL architecture="parallel-layers"
 LABEL usage="Base for parallel TeX and Haskell toolchain layers"
 LABEL version="v1.2.6"
-LABEL optimizations="jq-gh-tools"
+LABEL optimizations="jq-gh-tools,flexible-volume-mounting"
+LABEL features="fixuid,tini,flexible-uid-gid"
