@@ -107,8 +107,6 @@ RUN mkdir -p /tmp/preload-deps/src && \
 RUN --mount=type=cache,target=/home/dev/.cabal/store \
     --mount=type=cache,target=/home/dev/.cache \
     cd /tmp/preload-deps && \
-    mkdir -p /home/dev/.cabal/store /home/dev/.cache && \
-    chown -R dev:dev /home/dev/.cabal /home/dev/.cache && \
     cabal build --only-dependencies
 
 # Clean up temporary files
