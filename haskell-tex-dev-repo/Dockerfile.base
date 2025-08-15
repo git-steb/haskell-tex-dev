@@ -60,36 +60,7 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/fixuid", "-q"]
 USER dev
 WORKDIR /home/dev
 
-# Create helpful documentation
-RUN echo "# Ubuntu Base for Parallel TeX and Haskell Layers" > ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "## Architecture" >> ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "This base image provides the foundation for parallel layers:" >> ~/README.md && \
-    echo "- **TeX Layer**: Minimal TeX Live with LuaTeX for Unicode support" >> ~/README.md && \
-    echo "- **Haskell Layer**: GHC 9.12.2 with native WASM support" >> ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "## Environment Details" >> ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "- **User**: dev (UID 1001)" >> ~/README.md && \
-    echo "- **Home**: /home/dev" >> ~/README.md && \
-    echo "- **Workspace**: /workspace" >> ~/README.md && \
-    echo "- **Python Venv**: ~/.ci-venv" >> ~/README.md && \
-    echo "- **Flexible Volume Mounting**: fixuid for UID/GID flexibility" >> ~/README.md && \
-    echo "- **Process Management**: tini for proper signal handling" >> ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "## Volume Mounting" >> ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "This image supports flexible volume mounting with fixuid:" >> ~/README.md && \
-    echo "- Automatically adjusts file ownership for mounted volumes" >> ~/README.md && \
-    echo "- Works with any host UID/GID" >> ~/README.md && \
-    echo "- No need for --user flag or manual permission fixes" >> ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "## Next Steps" >> ~/README.md && \
-    echo "" >> ~/README.md && \
-    echo "Build parallel layers:" >> ~/README.md && \
-    echo "- docker build -f Dockerfile.tex -t haskell-tex-dev:tex ." >> ~/README.md && \
-    echo "- docker build -f Dockerfile.haskell -t haskell-tex-dev:haskell ." >> ~/README.md
+# Documentation is maintained in the repository README.md
 
 # Set default command
 CMD ["/bin/bash"]
