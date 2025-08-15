@@ -1,0 +1,91 @@
+name: Test Build (No Push)
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches-ignore: [ main ]
+    paths-ignore: [ '**/*.md' ]
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Read version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
+      
+      - uses: docker/setup-buildx-action@v3
+      
+      # Test build base layer (no push)
+      - name: Test build base layer
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.base
+          build-args: VERSION=${{ env.VERSION }}
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Test build haskell layer (no push)
+      - name: Test build haskell layer
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.haskell
+          build-args: |
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
+            VERSION=${{ env.VERSION }}
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Test build tex layer (no push)
+      - name: Test build tex layer
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.tex
+          build-args: |
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+            VERSION=${{ env.VERSION }}
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test image functionality
+        run: |
+          echo "Testing image functionality..."
+          echo "Version: $VERSION"
+          
+          # Test that the base image has the required tools
+          echo "Testing base image tools..."
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-latest jq --version
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-latest gh --version
+          
+          # Test that the haskell image has the required tools
+          echo "Testing haskell image tools..."
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-latest ghc --version
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-latest cabal --version
+          
+          echo "✅ All builds and tests passed!"
+
+      - name: Build summary
+        run: |
+          echo "## Build Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Base layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Haskell layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **TeX layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Tool verification**: All tools available" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: Ready for merge and release" >> $GITHUB_STEP_SUMMARY

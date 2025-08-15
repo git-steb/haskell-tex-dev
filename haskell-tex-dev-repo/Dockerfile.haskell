@@ -9,6 +9,7 @@ FROM ${BASE_IMAGE}
 ARG GHC_VERSION=9.12.2
 ARG CABAL_VERSION=3.16.0.0
 ARG STACK_VERSION=3.7.1
+ARG VERSION=1.2.6
 
 # Root for system dependencies
 USER root
@@ -195,7 +196,7 @@ LABEL org.opencontainers.image.title="Haskell TeX Dev - Haskell Layer"
 LABEL layer="haskell"
 LABEL features="haskell,ghc,wasm,cabal,stack"
 LABEL usage="docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:haskell"
-LABEL version="v1.2.6"
+LABEL version="v${VERSION}"
 LABEL optimizations="preloaded-deps,jq-gh-tools"
 
 # Switch to dev user for runtime

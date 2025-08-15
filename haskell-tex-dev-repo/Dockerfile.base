@@ -7,6 +7,7 @@ ARG GHC_VERSION=9.12.2
 ARG CABAL_VERSION=3.16.0.0
 ARG HLS_VERSION=2.10.0.0
 ARG STACK_VERSION=3.7.1
+ARG VERSION=1.2.6
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -72,6 +73,6 @@ LABEL org.opencontainers.image.description="Ubuntu base for parallel TeX and Has
 LABEL org.opencontainers.image.title="Haskell TeX Dev Base"
 LABEL architecture="parallel-layers"
 LABEL usage="Base for parallel TeX and Haskell toolchain layers"
-LABEL version="v1.2.6"
+LABEL version="v${VERSION}"
 LABEL optimizations="jq-gh-tools,flexible-volume-mounting"
 LABEL features="fixuid,tini,flexible-uid-gid"
