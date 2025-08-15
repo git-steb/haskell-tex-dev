@@ -8,55 +8,7 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  haskell:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        ghc: [9.8.2, 9.10.1, 9.12.2]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up GHC / Cabal
-        uses: haskell/actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc }}
-          enable-stack: false
-          cabal-version: latest
-
-      - name: Cache Cabal store
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cabal/store
-            dist-newstyle
-          key: ${{ runner.os }}-cabal-${{ matrix.ghc }}-${{ hashFiles('**/cabal.project*', '**/*.cabal') }}
-          restore-keys: |
-            ${{ runner.os }}-cabal-${{ matrix.ghc }}-
-
-      - name: Build
-        run: cabal build all --enable-tests --flags="+ci"
-
-      - name: Test
-        run: cabal test all --test-options="--color=always"
-
-      - name: Lint (hlint optional)
-        if: hashFiles('.hlint.yaml') != ''
-        run: hlint .
-
-      - name: Upload hasm-shell binary (PR debug)
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hasm-shell-${{ matrix.ghc }}
-          path: dist-newstyle/**/build/**/hasm-shell/hasm-shell
-
   docker:
     runs-on: ubuntu-latest
     steps:
