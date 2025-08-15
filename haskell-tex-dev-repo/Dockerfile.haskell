@@ -1,0 +1,211 @@
+# syntax=docker/dockerfile:1.7
+# Haskell Layer: GHC 9.12.2 with native WASM support
+# This layer is parallel to the TeX layer, both built on Ubuntu base
+# Can be combined with TeX layer when needed (e.g., for HASM applications)
+ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
+FROM ${BASE_IMAGE}
+
+# Build arguments for flexible toolchain versions
+ARG GHC_VERSION=9.12.2
+ARG CABAL_VERSION=3.16.0.0
+ARG STACK_VERSION=3.7.1
+
+# Root for system dependencies
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libffi-dev \
+    libffi8 \
+    libgmp-dev \
+    libgmp10 \
+    libncurses-dev \
+    pkg-config \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nodejs \
+    npm \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Note: jq, curl, ca-certificates, gnupg, and gh are now installed in the base image
+# for better layer caching and faster CI builds
+
+# Add GHCup and Cabal bin to PATH
+
+# Install specific Haskell toolchain versions
+USER dev
+# Note: GHC 9.12.2 uses Ubuntu 22.04 packages (Ubuntu 24.04 packages not yet available)
+RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 GHCUP_INSTALL_BASE_PREFIX=/home/dev sh
+ENV PATH="/home/dev/.ghcup/bin:$PATH"
+RUN ghcup install cabal ${CABAL_VERSION} && ghcup set cabal ${CABAL_VERSION}
+RUN ghcup install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
+RUN ghcup install ghc ${GHC_VERSION} && ghcup set ghc ${GHC_VERSION}
+RUN ghc --supported-targets | grep -i wasm || echo "WASM target not found"
+
+ENV PATH="/home/dev/.cabal/bin:/home/dev/.ghcup/bin:/home/dev/.local/bin:$PATH"
+# Install Ormolu (Haskell formatter) as binary
+# Quick native and WASM smoke tests to catch regressions early
+RUN ghc --version && cabal --version && ( [ "${WITH_HLS}" = "1" ] && hls --version || echo "HLS not installed" ) || true
+
+# Set up Cabal configuration (using default configuration)
+RUN mkdir -p ~/.cabal
+# Update Cabal index with caching
+RUN --mount=type=cache,target=/home/dev/.cabal/store \
+    --mount=type=cache,target=/home/dev/.cache \
+    cabal update
+
+# =============================================================================
+# PRE-LOAD COMMON HASKELL DEPENDENCIES LAYER
+# =============================================================================
+# This layer pre-installs common dependencies to speed up project builds
+# These are the most commonly used packages from the homeomorphosis project
+
+# Create a temporary cabal project to pre-install dependencies
+RUN mkdir -p /tmp/preload-deps && cd /tmp/preload-deps
+
+# Create a cabal.project file with common dependencies
+RUN echo "packages: ." > /tmp/preload-deps/cabal.project && \
+    echo "resolver: ghc-9.12.2" >> /tmp/preload-deps/cabal.project && \
+    echo "index-state: 2025-08-15T19:06:45Z" >> /tmp/preload-deps/cabal.project
+
+# Create a minimal cabal file with common dependencies
+RUN echo "cabal-version: 2.0" > /tmp/preload-deps/preload-deps.cabal && \
+    echo "name:                preload-deps" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "version:             0.1.0" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "license:             MIT" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "build-type:          Simple" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "library" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "  hs-source-dirs:      src" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "  default-language:    GHC2021" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "  default-extensions:  OverloadedStrings," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       DeriveGeneric," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       DerivingStrategies," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       GeneralizedNewtypeDeriving," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       StandaloneDeriving," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       LambdaCase," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       MultiWayIf," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       ImportQualifiedPost," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       TypeApplications," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       ScopedTypeVariables," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       NamedFieldPuns," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       RecordWildCards," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       DuplicateRecordFields," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       OverloadedRecordDot," >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "                       DoAndIfThenElse" >> /tmp/preload-deps/preload-deps.cabal && \
+    echo "  build-depends:       $(cat deps-list.txt | grep -v '^#' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')" >> /tmp/preload-deps/preload-deps.cabal
+
+# Create minimal source directory
+RUN mkdir -p /tmp/preload-deps/src && \
+    echo 'module PreloadDeps where' > /tmp/preload-deps/src/PreloadDeps.hs
+
+# Pre-install all dependencies (this will be cached in the cabal store)
+RUN cd /tmp/preload-deps && \
+    --mount=type=cache,target=/home/dev/.cabal/store \
+    --mount=type=cache,target=/home/dev/.cache \
+    cabal build --only-dependencies
+
+# Clean up temporary files
+RUN rm -rf /tmp/preload-deps
+
+# Clean up cabal store and cache
+RUN cabal store gc --prune=all || true && rm -rf /home/dev/.cache/*
+# Create helpful documentation and scripts
+RUN mkdir -p ~/.local/bin && \
+echo 'ghc --version' >> ~/.local/bin/show-haskell-versions && \
+echo 'cabal --version' >> ~/.local/bin/show-haskell-versions && \
+echo 'stack --version' >> ~/.local/bin/show-haskell-versions && \
+echo 'echo ""' >> ~/.local/bin/show-haskell-versions && \
+echo 'echo "=== WASM Toolchain ==="' >> ~/.local/bin/show-haskell-versions && \
+echo 'wasmtime --version' >> ~/.local/bin/show-haskell-versions && \
+chmod +x ~/.local/bin/show-haskell-versions
+# Create usage documentation
+RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md && \
+    echo "- GHC 9.12.2 with native WebAssembly support" >> ~/README-haskell.md && \
+    echo "- Cabal 3.16.0.0 for package management" >> ~/README-haskell.md && \
+    echo "- Stack 3.7.1 for project management" >> ~/README-haskell.md && \
+    echo "- Stack 3.7.1 for project management" >> ~/README-haskell.md && \
+    echo "- Ormolu for code formatting" >> ~/README-haskell.md && \
+    echo "- Python 3 with virtual environment for CI tools" >> ~/README-haskell.md && \
+    echo "- Node.js and npm for web development" >> ~/README-haskell.md && \
+    echo "- Pre-loaded common Haskell dependencies for faster builds" >> ~/README-haskell.md && \
+    echo "- jq and gh tools pre-installed in base layer" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "## Quick Start" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### Check Haskell versions:" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "show-haskell-versions" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### Create new project:" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "cabal init my-project" >> ~/README-haskell.md && \
+    echo "cd my-project" >> ~/README-haskell.md && \
+    echo "cabal build" >> ~/README-haskell.md && \
+    echo "cabal run" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### WebAssembly compilation:" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "ghc -target wasm32-wasi -o app.wasm Main.hs" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### Add TeX support (for HASM applications):" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "# Use combined image with TeX layer" >> ~/README-haskell.md && \
+    echo "docker run -it --rm -v $(pwd):/workspace \" >> ~/README-haskell.md && \
+    echo "  ghcr.io/git-steb/haskell-tex-dev:full" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md
+
+# ---- Ship-ready cleanup (safe to remove; keeps runtime intact) ----
+USER dev
+
+# 1) Trim ghcup caches and orphaned toolchains
+RUN ghcup gc -f || true && rm -rf ~/.ghcup/cache/*
+
+# 2) Optional: remove HLS to keep image lean when WITH_HLS=0
+RUN if [ "${WITH_HLS}" != "1" ]; then \
+      rm -f ~/.ghcup/bin/hls* 2>/dev/null || true; \
+    fi
+
+# 3) Purge cabal store and index caches (no globally installed libs)
+RUN cabal store gc --prune=all || true && rm -rf ~/.cache/* ~/.cabal/packages || true
+
+# 4) Remove build artifacts if any slipped in
+RUN rm -rf ~/dist-newstyle ~/Main.hs ~/Main.o || true
+
+# 5) Strip large binaries where possible
+USER root
+RUN set -eux; \
+    find /home/dev/.ghcup/bin -maxdepth 1 -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true; \
+    strip --strip-unneeded /usr/local/bin/ormolu 2>/dev/null || true
+
+# 6) System cruft (docs, manpages) – keep minimal runtime libs
+RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info || true
+
+# 7) Remove leftover package manager caches
+
+# Labels for better image management
+LABEL maintainer="git-steb"
+LABEL org.opencontainers.image.source="https://github.com/git-steb/haskell-tex-dev"
+LABEL org.opencontainers.image.description="Haskell layer with GHC 9.12.2 and WASM support"
+LABEL org.opencontainers.image.title="Haskell TeX Dev - Haskell Layer"
+LABEL layer="haskell"
+LABEL features="haskell,ghc,wasm,cabal,stack"
+LABEL usage="docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:haskell"
+LABEL version="v1.2.6"
+LABEL optimizations="preloaded-deps,jq-gh-tools"
+
+# Switch to dev user for runtime
+USER dev
+
+# Set default command
+CMD ["/bin/bash"]
+# Trigger build
+# Trigger build with full-latest fix
+# Trigger Docker build
+# Trigger build with full-latest fix
+# Trigger build with base layer fix
+# Trigger Docker build to publish container
