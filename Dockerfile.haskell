@@ -65,11 +65,7 @@ COPY deps-list.txt /tmp/deps-list.txt
 # These are the most commonly used packages from the homeomorphosis project
 
 # Create a temporary cabal project and pre-install dependencies
-RUN --mount=type=cache,target=/home/dev/.cabal/store \
-    --mount=type=cache,target=/home/dev/.cache \
-    mkdir -p /home/dev/.cabal/store /home/dev/.cache && \
-    chown -R dev:dev /home/dev/.cabal /home/dev/.cache && \
-    mkdir -p /tmp/preload-deps && \
+RUN mkdir -p /tmp/preload-deps && \
     cd /tmp/preload-deps && \
     echo "packages: ." > cabal.project && \
     echo "resolver: ghc-9.12.2" >> cabal.project && \
