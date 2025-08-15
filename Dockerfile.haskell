@@ -68,7 +68,7 @@ COPY deps-list.txt /tmp/deps-list.txt
 RUN mkdir -p /tmp/preload-deps && \
     cd /tmp/preload-deps && \
     echo "packages: ." > cabal.project && \
-    echo "resolver: ghc-9.12.2" >> cabal.project && \
+    echo "with-compiler: ghc-9.12.2" >> cabal.project && \
     echo "index-state: 2025-08-15T19:06:45Z" >> cabal.project && \
     echo "cabal-version: 2.0" > preload-deps.cabal && \
     echo "name:                preload-deps" >> preload-deps.cabal && \
@@ -97,6 +97,13 @@ RUN mkdir -p /tmp/preload-deps && \
     echo "  build-depends:       $(cat /tmp/deps-list.txt | grep -v '^#' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')" >> preload-deps.cabal && \
     mkdir -p src && \
     echo 'module PreloadDeps where' > src/PreloadDeps.hs && \
+    echo "=== DEBUG: Generated cabal.project ===" && \
+    cat cabal.project && \
+    echo "=== DEBUG: Generated preload-deps.cabal ===" && \
+    cat preload-deps.cabal && \
+    echo "=== DEBUG: Dependencies from deps-list.txt ===" && \
+    cat /tmp/deps-list.txt | grep -v '^#' | grep -v '^$' && \
+    echo "=== DEBUG: Starting cabal build ===" && \
     cabal build --only-dependencies
 
 # Clean up temporary files
