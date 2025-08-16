@@ -109,8 +109,8 @@ RUN mkdir -p /tmp/preload-deps && \
 # Clean up temporary files
 RUN rm -rf /tmp/preload-deps
 
-# Clean up cabal store and cache
-RUN cabal store gc --prune=all || true && rm -rf /home/dev/.cache/*
+# Note: Pre-loaded dependencies are preserved in /home/dev/.cabal/store
+# for reuse by projects that use this image
 # Create helpful documentation and scripts
 RUN mkdir -p ~/.local/bin && \
 echo 'ghc --version' >> ~/.local/bin/show-haskell-versions && \
@@ -129,7 +129,7 @@ RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md &
     echo "- Ormolu for code formatting" >> ~/README-haskell.md && \
     echo "- Python 3 with virtual environment for CI tools" >> ~/README-haskell.md && \
     echo "- Node.js and npm for web development" >> ~/README-haskell.md && \
-    echo "- Pre-loaded common Haskell dependencies for faster builds" >> ~/README-haskell.md && \
+    echo "- Pre-loaded common Haskell dependencies for faster builds (preserved in cabal store)" >> ~/README-haskell.md && \
     echo "- jq and gh tools pre-installed in base layer" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
     echo "## Quick Start" >> ~/README-haskell.md && \
@@ -170,8 +170,9 @@ RUN if [ "${WITH_HLS}" != "1" ]; then \
       rm -f ~/.ghcup/bin/hls* 2>/dev/null || true; \
     fi
 
-# 3) Purge cabal store and index caches (no globally installed libs)
-RUN cabal store gc --prune=all || true && rm -rf ~/.cache/* ~/.cabal/packages || true
+# 3) Preserve pre-loaded dependencies in cabal store for reuse
+# Note: cabal store gc --prune=all was removed to preserve pre-loaded deps
+RUN rm -rf ~/.cache/* || true
 
 # 4) Remove build artifacts if any slipped in
 RUN rm -rf ~/dist-newstyle ~/Main.hs ~/Main.o || true
