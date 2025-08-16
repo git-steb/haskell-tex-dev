@@ -5,6 +5,10 @@ ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-latest
 ARG VERSION=1.2.6
 FROM ${BASE_IMAGE}
 
+# Declare build args in this stage before using them
+ARG VERSION
+ENV VERSION=${VERSION}
+
 # Switch to root to install TeX Live
 USER root
 
