@@ -30,8 +30,8 @@ jobs:
       - name: Build and push base layer
         uses: docker/build-push-action@v6
         with:
-          context: ./build_context
-          file: Dockerfile.base
+          context: .
+          file: build_context/Dockerfile.base
           build-args: VERSION=${{ env.VERSION }}
           push: true
           load: true
@@ -46,8 +46,8 @@ jobs:
       - name: Build and push haskell layer
         uses: docker/build-push-action@v6
         with:
-          context: ./build_context
-          file: Dockerfile.haskell
+          context: .
+          file: build_context/Dockerfile.haskell
           build-args: |
             BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
             VERSION=${{ env.VERSION }}
@@ -64,8 +64,8 @@ jobs:
       - name: Build and push tex layer
         uses: docker/build-push-action@v6
         with:
-          context: ./build_context
-          file: Dockerfile.tex
+          context: .
+          file: build_context/Dockerfile.tex
           build-args: |
             BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
             VERSION=${{ env.VERSION }}
