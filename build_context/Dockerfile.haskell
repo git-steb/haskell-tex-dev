@@ -59,7 +59,7 @@ RUN --mount=type=cache,target=/home/dev/.cabal/store \
 # =============================================================================
 # PRE-LOAD COMMON HASKELL DEPENDENCIES LAYER
 # Copy dependency list for pre-loading
-COPY deps-list.txt /tmp/deps-list.txt
+COPY build_context/deps-list.txt /tmp/deps-list.txt
 # =============================================================================
 # This layer pre-installs common dependencies to speed up project builds
 # These are the most commonly used packages from the homeomorphosis project
