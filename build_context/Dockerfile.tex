@@ -1,8 +1,13 @@
 # TeX Layer: Complete TeX Live environment with LuaTeX for Unicode support
 # This provides a comprehensive TeX environment for document generation
 # Built on top of Haskell layer to create the full Haskell + TeX environment
-ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
+ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+ARG VERSION=1.2.6
 FROM ${BASE_IMAGE}
+
+# Declare build args in this stage before using them
+ARG VERSION
+ENV VERSION=${VERSION}
 
 # Switch to root to install TeX Live
 USER root
@@ -278,3 +283,4 @@ LABEL org.opencontainers.image.title="Haskell TeX Dev - Full Layer"
 LABEL layer="full"
 LABEL features="haskell,tex,ghc,wasm,cabal,stack,hls,luatex,unicode,homeomorphosis"
 LABEL usage="docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:latest"
+LABEL version="v${VERSION}"

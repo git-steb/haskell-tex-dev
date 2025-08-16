@@ -1,0 +1,27 @@
+# Common Haskell dependencies to pre-load in the haskell-tex-dev image
+# This file is used by Dockerfile.haskell to pre-install dependencies for faster builds
+# Update this list when adding new dependencies to the homeomorphosis project
+
+base
+text
+aeson
+bytestring
+containers
+regex-tdfa
+yaml
+filepath
+directory
+mtl
+time
+random
+vector
+uuid
+aeson-pretty
+hashable
+exceptions
+scientific
+transformers
+process
+unordered-containers
+binary
+QuickCheck

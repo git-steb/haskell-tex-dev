@@ -9,6 +9,7 @@ FROM ${BASE_IMAGE}
 ARG GHC_VERSION=9.12.2
 ARG CABAL_VERSION=3.16.0.0
 ARG STACK_VERSION=3.7.1
+ARG VERSION=1.2.6
 
 # Root for system dependencies
 USER root
@@ -27,6 +28,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Note: jq, curl, ca-certificates, gnupg, and gh are now installed in the base image
+# for better layer caching and faster CI builds
 
 # Add GHCup and Cabal bin to PATH
 
@@ -52,6 +56,59 @@ RUN --mount=type=cache,target=/home/dev/.cabal/store \
     --mount=type=cache,target=/home/dev/.cache \
     cabal update
 
+# =============================================================================
+# PRE-LOAD COMMON HASKELL DEPENDENCIES LAYER
+# Copy dependency list for pre-loading
+COPY build_context/deps-list.txt /tmp/deps-list.txt
+# =============================================================================
+# This layer pre-installs common dependencies to speed up project builds
+# These are the most commonly used packages from the homeomorphosis project
+
+# Create a temporary cabal project and pre-install dependencies
+RUN mkdir -p /tmp/preload-deps && \
+    cd /tmp/preload-deps && \
+    echo "packages: ." > cabal.project && \
+    echo "with-compiler: ghc-9.12.2" >> cabal.project && \
+    echo "index-state: 2025-08-15T19:06:45Z" >> cabal.project && \
+    echo "cabal-version: 2.0" > preload-deps.cabal && \
+    echo "name:                preload-deps" >> preload-deps.cabal && \
+    echo "version:             0.1.0" >> preload-deps.cabal && \
+    echo "license:             MIT" >> preload-deps.cabal && \
+    echo "build-type:          Simple" >> preload-deps.cabal && \
+    echo "" >> preload-deps.cabal && \
+    echo "library" >> preload-deps.cabal && \
+    echo "  hs-source-dirs:      src" >> preload-deps.cabal && \
+    echo "  default-language:    GHC2021" >> preload-deps.cabal && \
+    echo "  default-extensions:  OverloadedStrings," >> preload-deps.cabal && \
+    echo "                       DeriveGeneric," >> preload-deps.cabal && \
+    echo "                       DerivingStrategies," >> preload-deps.cabal && \
+    echo "                       GeneralizedNewtypeDeriving," >> preload-deps.cabal && \
+    echo "                       StandaloneDeriving," >> preload-deps.cabal && \
+    echo "                       LambdaCase," >> preload-deps.cabal && \
+    echo "                       MultiWayIf," >> preload-deps.cabal && \
+    echo "                       ImportQualifiedPost," >> preload-deps.cabal && \
+    echo "                       TypeApplications," >> preload-deps.cabal && \
+    echo "                       ScopedTypeVariables," >> preload-deps.cabal && \
+    echo "                       NamedFieldPuns," >> preload-deps.cabal && \
+    echo "                       RecordWildCards," >> preload-deps.cabal && \
+    echo "                       DuplicateRecordFields," >> preload-deps.cabal && \
+    echo "                       OverloadedRecordDot," >> preload-deps.cabal && \
+    echo "                       DoAndIfThenElse" >> preload-deps.cabal && \
+    echo "  build-depends:       $(cat /tmp/deps-list.txt | grep -v '^#' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')" >> preload-deps.cabal && \
+    mkdir -p src && \
+    echo 'module PreloadDeps where' > src/PreloadDeps.hs && \
+    echo "=== DEBUG: Generated cabal.project ===" && \
+    cat cabal.project && \
+    echo "=== DEBUG: Generated preload-deps.cabal ===" && \
+    cat preload-deps.cabal && \
+    echo "=== DEBUG: Dependencies from deps-list.txt ===" && \
+    cat /tmp/deps-list.txt | grep -v '^#' | grep -v '^$' && \
+    echo "=== DEBUG: Starting cabal build ===" && \
+    cabal build --only-dependencies
+
+# Clean up temporary files
+RUN rm -rf /tmp/preload-deps
+
 # Clean up cabal store and cache
 RUN cabal store gc --prune=all || true && rm -rf /home/dev/.cache/*
 # Create helpful documentation and scripts
@@ -72,6 +129,8 @@ RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md &
     echo "- Ormolu for code formatting" >> ~/README-haskell.md && \
     echo "- Python 3 with virtual environment for CI tools" >> ~/README-haskell.md && \
     echo "- Node.js and npm for web development" >> ~/README-haskell.md && \
+    echo "- Pre-loaded common Haskell dependencies for faster builds" >> ~/README-haskell.md && \
+    echo "- jq and gh tools pre-installed in base layer" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
     echo "## Quick Start" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
@@ -136,6 +195,8 @@ LABEL org.opencontainers.image.title="Haskell TeX Dev - Haskell Layer"
 LABEL layer="haskell"
 LABEL features="haskell,ghc,wasm,cabal,stack"
 LABEL usage="docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:haskell"
+LABEL version="v${VERSION}"
+LABEL optimizations="preloaded-deps,jq-gh-tools"
 
 # Switch to dev user for runtime
 USER dev
