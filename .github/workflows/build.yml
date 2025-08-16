@@ -1,12 +1,13 @@
-name: build
+name: build-and-publish
 
 on:
   pull_request:
   push:
-    branches-ignore: [main]
+    branches: [main]
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   docker:
@@ -19,53 +20,67 @@ jobs:
       
       - uses: docker/setup-buildx-action@v3
       
-      # Build base layer (local)
-      - name: Build base layer (local)
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Build and push base layer
+      - name: Build and push base layer
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.base
+          file: build_context/Dockerfile.base
           build-args: VERSION=${{ env.VERSION }}
-          push: false
+          push: true
           load: true
-          tags: local/haskell-tex-dev:base-${{ github.sha }}
+          tags: |
+            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
+            ghcr.io/git-steb/haskell-tex-dev:base-latest
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Build haskell layer (local, chained from base)
-      - name: Build haskell layer (local)
+      # Build and push haskell layer
+      - name: Build and push haskell layer
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.haskell
+          file: build_context/Dockerfile.haskell
           build-args: |
-            BASE_IMAGE=local/haskell-tex-dev:base-${{ github.sha }}
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
             VERSION=${{ env.VERSION }}
-          push: false
+          push: true
           load: true
-          tags: local/haskell-tex-dev:haskell-${{ github.sha }}
+          tags: |
+            ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
+            ghcr.io/git-steb/haskell-tex-dev:haskell-latest
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Build tex layer (local, chained from haskell)
-      - name: Build tex layer (local)
+      # Build and push tex layer (full image)
+      - name: Build and push tex layer
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.tex
+          file: build_context/Dockerfile.tex
           build-args: |
-            BASE_IMAGE=local/haskell-tex-dev:haskell-${{ github.sha }}
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
             VERSION=${{ env.VERSION }}
-          push: false
+          push: true
           load: true
-          tags: local/haskell-tex-dev:tex-${{ github.sha }}
+          tags: |
+            ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }}
+            ghcr.io/git-steb/haskell-tex-dev:tex-latest
+            ghcr.io/git-steb/haskell-tex-dev:latest
+            ghcr.io/git-steb/haskell-tex-dev:v${{ env.VERSION }}
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Test image functionality (local images)
+      - name: Test image functionality
         run: |
           set -euo pipefail
           echo "Testing image functionality..."
@@ -73,28 +88,28 @@ jobs:
           
           # Test that the base image has the required tools
           echo "Testing base image tools..."
-          docker run --rm local/haskell-tex-dev:base-${{ github.sha }} jq --version
-          docker run --rm local/haskell-tex-dev:base-${{ github.sha }} gh --version
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-latest jq --version
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-latest gh --version
           
           # Test that the haskell image has the required tools
           echo "Testing haskell image tools..."
-          docker run --rm local/haskell-tex-dev:haskell-${{ github.sha }} ghc --version
-          docker run --rm local/haskell-tex-dev:haskell-${{ github.sha }} cabal --version
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-latest ghc --version
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-latest cabal --version
           
           # Test that the tex image has the required tools
           echo "Testing tex image tools..."
-          docker run --rm local/haskell-tex-dev:tex-${{ github.sha }} latexmk -v
+          docker run --rm ghcr.io/git-steb/haskell-tex-dev:tex-latest latexmk -v
           
           echo "✅ All builds and tests passed!"
 
       - name: Build summary
         run: |
-          echo "## Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Build and Publish Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Base layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Haskell layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **TeX layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Base layer**: Built and published" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Haskell layer**: Built and published" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **TeX layer**: Built and published" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Tool verification**: All tools available" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version**: v$VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "**Status**: Ready for merge and publish" >> $GITHUB_STEP_SUMMARY
+          echo "**Published tags**: latest, v$VERSION" >> $GITHUB_STEP_SUMMARY
