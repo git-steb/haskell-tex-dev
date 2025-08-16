@@ -41,6 +41,7 @@ jobs:
           file: build_context/Dockerfile.base
           build-args: VERSION=${{ env.VERSION }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:base-latest
@@ -56,9 +57,10 @@ jobs:
           context: .
           file: build_context/Dockerfile.haskell
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
+            BASE_IMAGE=${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:base-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:base-{0}', github.sha) }}
             VERSION=${{ env.VERSION }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:haskell-latest
@@ -75,9 +77,10 @@ jobs:
           context: .
           file: build_context/Dockerfile.tex
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
+            BASE_IMAGE=${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:haskell-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:haskell-{0}', github.sha) }}
             VERSION=${{ env.VERSION }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:tex-latest
@@ -96,17 +99,17 @@ jobs:
           
           # Test that the base image has the required tools
           echo "Testing base image tools..."
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }} jq --version
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }} gh --version
+          docker run --rm ${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:base-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:base-{0}', github.sha) }} jq --version
+          docker run --rm ${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:base-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:base-{0}', github.sha) }} gh --version
           
           # Test that the haskell image has the required tools
           echo "Testing haskell image tools..."
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }} ghc --version
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }} cabal --version
+          docker run --rm ${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:haskell-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:haskell-{0}', github.sha) }} ghc --version
+          docker run --rm ${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:haskell-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:haskell-{0}', github.sha) }} cabal --version
           
           # Test that the tex image has the required tools
           echo "Testing tex image tools..."
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }} latexmk -v
+          docker run --rm ${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:tex-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:tex-{0}', github.sha) }} latexmk -v
           
           echo "✅ All builds and tests passed!"
 
