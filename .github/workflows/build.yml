@@ -41,7 +41,8 @@ jobs:
           file: build_context/Dockerfile.base
           build-args: VERSION=${{ env.VERSION }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          load: ${{ github.event_name == 'pull_request' }}
+          load: true
+          platforms: linux/amd64
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:base-latest
@@ -60,7 +61,8 @@ jobs:
             BASE_IMAGE=${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:base-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:base-{0}', github.sha) }}
             VERSION=${{ env.VERSION }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          load: ${{ github.event_name == 'pull_request' }}
+          load: true
+          platforms: linux/amd64
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:haskell-latest
@@ -80,7 +82,8 @@ jobs:
             BASE_IMAGE=${{ github.event_name == 'pull_request' && format('local/haskell-tex-dev:haskell-{0}', github.sha) || format('ghcr.io/git-steb/haskell-tex-dev:haskell-{0}', github.sha) }}
             VERSION=${{ env.VERSION }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          load: ${{ github.event_name == 'pull_request' }}
+          load: true
+          platforms: linux/amd64
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:tex-latest
