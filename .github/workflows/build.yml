@@ -45,7 +45,6 @@ jobs:
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:base-latest
-          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -65,7 +64,6 @@ jobs:
           tags: |
             ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
             ghcr.io/git-steb/haskell-tex-dev:haskell-latest
-          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -88,7 +86,6 @@ jobs:
             ghcr.io/git-steb/haskell-tex-dev:tex-latest
             ghcr.io/git-steb/haskell-tex-dev:latest
             ghcr.io/git-steb/haskell-tex-dev:v${{ env.VERSION }}
-          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
