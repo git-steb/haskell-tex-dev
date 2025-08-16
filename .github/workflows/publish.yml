@@ -29,7 +29,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # build/push base layer
+      # Validate VERSION
+      - name: Validate VERSION
+        run: |
+          set -euo pipefail
+          [[ -s VERSION ]] || (echo "VERSION empty" && exit 1)
+          grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' VERSION || (echo "Bad VERSION format" && exit 1)
+          echo "✅ VERSION validation passed: $VERSION"
+
+      # build/push base layer (SHA only)
       - id: base
         uses: docker/build-push-action@v6
         with:
@@ -37,13 +45,15 @@ jobs:
           file: Dockerfile.base
           build-args: VERSION=${{ env.VERSION }}
           push: true
-          tags: |
-            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
-            ghcr.io/git-steb/haskell-tex-dev:base-latest
+          tags: ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
 
-      # build/push haskell layer (Haskell only)
-      - id: hs
+      # build/push haskell layer (SHA only)
+      - id: haskell
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -52,25 +62,56 @@ jobs:
             BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
             VERSION=${{ env.VERSION }}
           push: true
-          tags: |
-            ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
-            ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+          tags: ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
 
-      # build/push tex layer (Full image: Haskell + TeX)
+      # build/push tex layer (SHA only)
       - id: tex
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.tex
-          build-args: BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
+          build-args: |
+            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
+            VERSION=${{ env.VERSION }}
           push: true
-          tags: |
-            ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }}
-            ghcr.io/git-steb/haskell-tex-dev:tex-latest
-            ghcr.io/git-steb/haskell-tex-dev:latest
-            ghcr.io/git-steb/haskell-tex-dev:v${{ env.VERSION }}
+          tags: ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }}
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      # Atomic tagging - create latest and version tags pointing to the same digests
+      - name: Tag version and latest atomically
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/git-steb/haskell-tex-dev"
+          
+          echo "Creating atomic tags for version $VERSION..."
+          
+          # Tag base layer
+          docker buildx imagetools create \
+            -t "$IMAGE:base-latest" \
+            "$IMAGE:base-${{ github.sha }}"
+          
+          # Tag haskell layer
+          docker buildx imagetools create \
+            -t "$IMAGE:haskell-latest" \
+            "$IMAGE:haskell-${{ github.sha }}"
+          
+          # Tag tex layer (full image) with all tags
+          docker buildx imagetools create \
+            -t "$IMAGE:tex-latest" \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:v$VERSION" \
+            "$IMAGE:tex-${{ github.sha }}"
+          
+          echo "✅ Atomic tagging completed"
 
       - name: Verify all tags
         run: |

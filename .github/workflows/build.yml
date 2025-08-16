@@ -33,14 +33,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Build haskell layer (local)
+      # Build haskell layer (local, chained from base)
       - name: Build haskell layer (local)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.haskell
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
+            BASE_IMAGE=local/haskell-tex-dev:base-${{ github.sha }}
             VERSION=${{ env.VERSION }}
           push: false
           load: true
@@ -49,14 +49,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Build tex layer (local)
+      # Build tex layer (local, chained from haskell)
       - name: Build tex layer (local)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.tex
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-latest
+            BASE_IMAGE=local/haskell-tex-dev:haskell-${{ github.sha }}
             VERSION=${{ env.VERSION }}
           push: false
           load: true
