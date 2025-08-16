@@ -18,6 +18,13 @@ jobs:
       - name: Read version
         run: echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
       
+      - name: Validate VERSION
+        run: |
+          set -euo pipefail
+          [[ -s VERSION ]] || { echo "VERSION empty"; exit 1; }
+          grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' VERSION || { echo "Bad VERSION format"; exit 1; }
+          echo "✅ VERSION validation passed: $VERSION"
+      
       - uses: docker/setup-buildx-action@v3
       
       - uses: docker/login-action@v3
@@ -65,7 +72,8 @@ jobs:
           sbom: true
 
       # Build and push tex layer (full image)
-      - name: Build and push tex layer
+      - id: tex
+        name: Build and push tex layer
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -85,34 +93,6 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
-
-      # Atomic tagging - only on main branch pushes
-      - name: Tag latest and version tags atomically
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          set -euo pipefail
-          IMG="ghcr.io/git-steb/haskell-tex-dev"
-          
-          echo "Creating atomic tags for version $VERSION..."
-          
-          # Tag base layer
-          docker buildx imagetools create \
-            -t "$IMG:base-latest" \
-            "$IMG:base-${{ github.sha }}"
-          
-          # Tag haskell layer
-          docker buildx imagetools create \
-            -t "$IMG:haskell-latest" \
-            "$IMG:haskell-${{ github.sha }}"
-          
-          # Tag tex layer (full image) with all tags
-          docker buildx imagetools create \
-            -t "$IMG:tex-latest" \
-            -t "$IMG:latest" \
-            -t "$IMG:v$VERSION" \
-            "$IMG:tex-${{ github.sha }}"
-          
-          echo "✅ Atomic tagging completed"
 
       - name: Test image functionality
         run: |
@@ -136,14 +116,56 @@ jobs:
           
           echo "✅ All builds and tests passed!"
 
+      # Atomic tagging - only on main branch pushes (after tests pass)
+      - name: Tag latest and version tags atomically
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          IMG="ghcr.io/git-steb/haskell-tex-dev"
+          DIGEST="${{ steps.tex.outputs.digest }}"
+          
+          echo "Creating atomic tags for version $VERSION using digest $DIGEST..."
+          
+          # Tag base layer
+          docker buildx imagetools create \
+            -t "$IMG:base-latest" \
+            "$IMG:base-${{ github.sha }}"
+          
+          # Tag haskell layer
+          docker buildx imagetools create \
+            -t "$IMG:haskell-latest" \
+            "$IMG:haskell-${{ github.sha }}"
+          
+          # Tag tex layer (full image) with all tags using exact digest
+          docker buildx imagetools create \
+            -t "$IMG:tex-latest" \
+            -t "$IMG:latest" \
+            -t "$IMG:v$VERSION" \
+            "$IMG@${DIGEST}"
+          
+          echo "✅ Atomic tagging completed"
+
       - name: Build summary
+        if: always()
         run: |
           echo "## Build and Publish Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Base layer**: Built and published" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Haskell layer**: Built and published" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **TeX layer**: Built and published" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Tool verification**: All tools available" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version**: v$VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "**Published tags**: latest, v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "**Event**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "✅ **Base layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Haskell layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **TeX layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Tool verification**: All tools available" >> $GITHUB_STEP_SUMMARY
+            if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+              echo "✅ **Published tags**: latest, v$VERSION" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "ℹ️ **Published**: No (PR build)" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ **Build failed**" >> $GITHUB_STEP_SUMMARY
+            echo "Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          fi
