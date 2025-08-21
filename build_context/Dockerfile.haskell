@@ -47,6 +47,26 @@ RUN ghcup install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
 RUN ghcup install ghc ${GHC_VERSION} && ghcup set ghc ${GHC_VERSION}
 RUN ghc --supported-targets | grep -i wasm || echo "WASM target not found"
 
+# Install WASM GHC toolchain via ghcup
+# This enables compilation to WebAssembly for web demos and embedded use
+RUN echo "🔧 Setting up WASM toolchain via ghcup..." && \
+    # Install WASM SDK and tools using the bootstrap method
+    curl https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/bootstrap.sh | SKIP_GHC=1 sh && \
+    # Add WASM release channel to ghcup
+    ghcup config add-release-channel https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/ghcup-wasm-0.0.9.yaml && \
+    # Set up environment for WASM toolchain
+    export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH" && \
+    # Create missing tool symlinks that the configure script expects
+    ln -sf ~/.ghc-wasm/wasi-sdk/bin/nm ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-nm && \
+    ln -sf ~/.ghc-wasm/wasi-sdk/bin/strip ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-strip && \
+    # Install WASM GHC with proper cross-compilation configuration
+    ghcup install ghc wasm32-wasi-9.12.2.20250327 -- --host=wasm32-wasi && \
+    echo "✅ WASM GHC toolchain installed successfully"
+
+# Set up WASM environment variables for all sessions
+RUN echo 'export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH"' >> ~/.bashrc && \
+    echo 'export WASI_SYSROOT="${HOME}/.ghc-wasm/wasi-sdk/share/wasi-sysroot"' >> ~/.bashrc
+
 ENV PATH="/home/dev/.cabal/bin:/home/dev/.ghcup/bin:/home/dev/.local/bin:$PATH"
 # Install Ormolu (Haskell formatter) as binary
 # Quick native and WASM smoke tests to catch regressions early
@@ -121,7 +141,8 @@ echo 'cabal --version' >> ~/.local/bin/show-haskell-versions && \
 echo 'stack --version' >> ~/.local/bin/show-haskell-versions && \
 echo 'echo ""' >> ~/.local/bin/show-haskell-versions && \
 echo 'echo "=== WASM Toolchain ==="' >> ~/.local/bin/show-haskell-versions && \
-echo 'wasmtime --version' >> ~/.local/bin/show-haskell-versions && \
+echo 'wasm32-wasi-ghc-9.12.2.20250327 --version || echo "WASM GHC not available"' >> ~/.local/bin/show-haskell-versions && \
+echo 'wasm-ld --version || echo "WASM linker not available"' >> ~/.local/bin/show-haskell-versions && \
 chmod +x ~/.local/bin/show-haskell-versions
 # Create usage documentation
 RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md && \
@@ -152,7 +173,9 @@ RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md &
     echo "" >> ~/README-haskell.md && \
     echo "### WebAssembly compilation:" >> ~/README-haskell.md && \
     echo "```bash" >> ~/README-haskell.md && \
-    echo "ghc -target wasm32-wasi -o app.wasm Main.hs" >> ~/README-haskell.md && \
+    echo "wasm32-wasi-ghc-9.12.2.20250327 -O2 -o app.wasm Main.hs" >> ~/README-haskell.md && \
+    echo "- WASM SDK and toolchain via ghcup integration" >> ~/README-haskell.md && \
+    echo "- Use: wasm32-wasi-ghc-9.12.2.20250327 for WASM compilation" >> ~/README-haskell.md && \
     echo "```" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
     echo "### Add TeX support (for HASM applications):" >> ~/README-haskell.md && \
@@ -196,7 +219,7 @@ LABEL org.opencontainers.image.source="https://github.com/git-steb/haskell-tex-d
 LABEL org.opencontainers.image.description="Haskell layer with GHC 9.12.2 and WASM support"
 LABEL org.opencontainers.image.title="Haskell TeX Dev - Haskell Layer"
 LABEL layer="haskell"
-LABEL features="haskell,ghc,wasm,cabal,stack"
+LABEL features="haskell,ghc,wasm,wasm32-wasi,cabal,stack,ghcup"
 LABEL usage="docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:haskell"
 LABEL version="v${VERSION}"
 LABEL optimizations="preloaded-deps,jq-gh-tools"
