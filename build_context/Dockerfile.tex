@@ -12,7 +12,8 @@ ENV VERSION=${VERSION}
 
 # Load version definitions from versions.env
 COPY build_context/versions.env /tmp/versions.env
-RUN set -a && . /tmp/versions.env && set +a
+RUN set -a && . /tmp/versions.env && set +a && \
+    echo "Loaded versions: VERSION=$VERSION, TEXLIVE_VERSION=$TEXLIVE_VERSION"
 
 # Switch to root to install TeX Live
 USER root

@@ -11,11 +11,7 @@ ARG VERSION
 
 # Load version definitions from versions.env
 COPY build_context/versions.env /tmp/versions.env
-COPY VERSION /tmp/VERSION
-RUN set -a && \
-    export VERSION=$(cat /tmp/VERSION | tr -d '\n') && \
-    . /tmp/versions.env && \
-    set +a && \
+RUN set -a && . /tmp/versions.env && set +a && \
     echo "Loaded versions: VERSION=$VERSION, GHC_VERSION=$GHC_VERSION, CABAL_VERSION=$CABAL_VERSION"
 
 # Root for system dependencies
