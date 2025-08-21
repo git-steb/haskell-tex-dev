@@ -61,9 +61,28 @@ RUN echo "🔧 Setting up WASM toolchain via ghcup..." && \
     # Create missing tool symlinks that the configure script expects
     ln -sf ~/.ghc-wasm/wasi-sdk/bin/nm ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-nm && \
     ln -sf ~/.ghc-wasm/wasi-sdk/bin/strip ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-strip && \
-    # Install WASM GHC with proper configuration
-    ghcup install ghc wasm32-wasi-9.12.2.20250327 && \
-    echo "✅ WASM GHC toolchain installed successfully"
+    # Debug: Check what tools are available
+    echo "🔍 Debug: Checking WASM tools..." && \
+    ls -la ~/.ghc-wasm/wasi-sdk/bin/ | grep -E "(nm|strip|clang|wasm)" && \
+    echo "🔍 Debug: PATH contains:" && \
+    echo "$PATH" | tr ':' '\n' | grep -E "(ghc-wasm|wasi)" && \
+    # Try WASM GHC installation with verbose output and capture logs
+    echo "🔧 Attempting WASM GHC installation..." && \
+    if ghcup install ghc wasm32-wasi-9.12.20250327 --verbose; then \
+        echo "✅ WASM GHC toolchain installed successfully"; \
+    else \
+        echo "⚠️  WASM GHC installation failed, capturing detailed logs..." && \
+        echo "📋 GHCup logs directory:" && \
+        ls -la /home/dev/.ghcup/logs/ 2>/dev/null || echo "No logs directory found" && \
+        echo "📋 Recent log files:" && \
+        find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec ls -la {} \; 2>/dev/null | tail -10 || echo "No log files found" && \
+        echo "📋 Latest log content:" && \
+        find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec tail -50 {} \; 2>/dev/null | head -100 || echo "No log content found" && \
+        echo "📋 Config.log from GHC installation (if exists):" && \
+        find /home/dev/.ghcup/tmp/ -name "config.log" -type f -exec cat {} \; 2>/dev/null | head -100 || echo "No config.log found" && \
+        echo "⚠️  Continuing without WASM GHC - you can install it manually later" && \
+        echo "💡 To install manually: ghcup install ghc wasm32-wasi-9.12.20250327"; \
+    fi
 
 # Set up WASM environment variables for all sessions
 RUN echo 'export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH"' >> ~/.bashrc && \
