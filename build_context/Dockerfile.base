@@ -2,12 +2,8 @@
 # This creates the foundation for independent toolchain layers
 FROM ubuntu:24.04
 
-# Build arguments for flexible toolchain versions
-ARG GHC_VERSION=9.12.2
-ARG CABAL_VERSION=3.16.0.0
-ARG HLS_VERSION=2.10.0.0
-ARG STACK_VERSION=3.7.1
-ARG VERSION=1.2.6
+# VERSION is read from the VERSION file in the repository root
+ARG VERSION
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive

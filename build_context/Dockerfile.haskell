@@ -6,10 +6,12 @@ ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
 FROM ${BASE_IMAGE}
 
 # Build arguments for flexible toolchain versions
-ARG GHC_VERSION=9.12.2
-ARG CABAL_VERSION=3.16.0.0
-ARG STACK_VERSION=3.7.1
-ARG VERSION=1.2.6
+# VERSION is read from the VERSION file in the repository root
+ARG VERSION
+
+# Load version definitions from versions.env
+COPY build_context/versions.env /tmp/versions.env
+RUN set -a && . /tmp/versions.env && set +a
 
 # Root for system dependencies
 USER root

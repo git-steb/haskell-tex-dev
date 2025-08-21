@@ -2,12 +2,17 @@
 # This provides a comprehensive TeX environment for document generation
 # Built on top of Haskell layer to create the full Haskell + TeX environment
 ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-latest
-ARG VERSION=1.2.6
+# VERSION is read from the VERSION file in the repository root
+ARG VERSION
 FROM ${BASE_IMAGE}
 
 # Declare build args in this stage before using them
 ARG VERSION
 ENV VERSION=${VERSION}
+
+# Load version definitions from versions.env
+COPY build_context/versions.env /tmp/versions.env
+RUN set -a && . /tmp/versions.env && set +a
 
 # Switch to root to install TeX Live
 USER root
