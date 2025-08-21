@@ -13,7 +13,7 @@ echo "📋 This will build: base -> haskell -> tex (layered approach)"
 echo ""
 
 # Check if we're in the right directory
-if [[ ! -f "Dockerfile.base" ]] || [[ ! -f "Dockerfile.haskell" ]] || [[ ! -f "Dockerfile.tex" ]]; then
+if [[ ! -f "build_context/Dockerfile.base" ]] || [[ ! -f "build_context/Dockerfile.haskell" ]] || [[ ! -f "build_context/Dockerfile.tex" ]]; then
     echo "❌ Error: Missing Dockerfiles. Make sure you're in the haskell-tex-dev repository root."
     exit 1
 fi
@@ -21,7 +21,7 @@ fi
 # Build base layer
 echo "🏗️  Building base layer..."
 docker build \
-    --file Dockerfile.base \
+    --file build_context/Dockerfile.base \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:base-${VERSION}" \
     --tag "${LOCAL_TAG}:base-latest" \
@@ -38,7 +38,7 @@ fi
 echo ""
 echo "🏗️  Building haskell layer..."
 docker build \
-    --file Dockerfile.haskell \
+    --file build_context/Dockerfile.haskell \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:base-${VERSION}" \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:haskell-${VERSION}" \
@@ -56,7 +56,7 @@ fi
 echo ""
 echo "🏗️  Building tex layer..."
 docker build \
-    --file Dockerfile.tex \
+    --file build_context/Dockerfile.tex \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:haskell-${VERSION}" \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:tex-${VERSION}" \
