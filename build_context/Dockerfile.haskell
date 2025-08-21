@@ -12,7 +12,8 @@ ARG VERSION
 # Load version definitions from versions.env
 COPY build_context/versions.env /tmp/versions.env
 RUN set -a && . /tmp/versions.env && set +a && \
-    echo "Loaded versions: VERSION=$VERSION, GHC_VERSION=$GHC_VERSION, CABAL_VERSION=$CABAL_VERSION"
+    echo "Loaded versions: VERSION=$VERSION, GHC_VERSION=$GHC_VERSION, CABAL_VERSION=$CABAL_VERSION" && \
+    echo "🔍 Debug: GHC_VERSION variable value: '$GHC_VERSION'"
 
 # Root for system dependencies
 USER root
@@ -32,6 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g-dev \
     libssl-dev \
     libcurl4-openssl-dev \
+    jq \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -47,7 +49,8 @@ RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=
 ENV PATH="/home/dev/.ghcup/bin:$PATH"
 RUN ghcup install cabal ${CABAL_VERSION} && ghcup set cabal ${CABAL_VERSION}
 RUN ghcup install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
-RUN ghcup install ghc ${GHC_VERSION} && ghcup set ghc ${GHC_VERSION}
+RUN echo "🔍 Debug: Installing GHC version: ${GHC_VERSION}" && \
+    ghcup install ghc ${GHC_VERSION} && ghcup set ghc ${GHC_VERSION}
 RUN ghc --supported-targets | grep -i wasm || echo "WASM target not found"
 
 # Install WASM GHC toolchain via ghcup
