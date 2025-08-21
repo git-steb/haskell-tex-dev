@@ -7,12 +7,15 @@ text
 aeson
 bytestring
 containers
+cryptonite
 regex-tdfa
 yaml
 filepath
 directory
 mtl
 time
+http-conduit
+http-types
 random
 vector
 uuid
@@ -22,6 +25,9 @@ exceptions
 scientific
 transformers
 process
+serialise
+stm
+network
 unordered-containers
 binary
 QuickCheck
