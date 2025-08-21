@@ -61,8 +61,8 @@ RUN echo "🔧 Setting up WASM toolchain via ghcup..." && \
     # Create missing tool symlinks that the configure script expects
     ln -sf ~/.ghc-wasm/wasi-sdk/bin/nm ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-nm && \
     ln -sf ~/.ghc-wasm/wasi-sdk/bin/strip ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-strip && \
-    # Install WASM GHC with proper cross-compilation configuration
-    ghcup install ghc wasm32-wasi-9.12.2.20250327 -- --host=wasm32-wasi && \
+    # Install WASM GHC without problematic configure flags
+    ghcup install ghc wasm32-wasi-9.12.2.20250327 && \
     echo "✅ WASM GHC toolchain installed successfully"
 
 # Set up WASM environment variables for all sessions
