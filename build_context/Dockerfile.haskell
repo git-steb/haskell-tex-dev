@@ -49,10 +49,25 @@ RUN ghcup install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
 RUN ghcup install ghc ${GHC_VERSION} && ghcup set ghc ${GHC_VERSION}
 RUN ghc --supported-targets | grep -i wasm || echo "WASM target not found"
 
-# Note: WASM GHC toolchain installation temporarily disabled due to configure issues
-# TODO: Re-enable WASM support once the configuration issues are resolved
-# For now, we'll focus on getting the basic Haskell environment working
-RUN echo "⚠️  WASM GHC toolchain installation skipped - will be added in future update"
+# Install WASM GHC toolchain via ghcup
+# This enables compilation to WebAssembly for web demos and embedded use
+RUN echo "🔧 Setting up WASM toolchain via ghcup..." && \
+    # Install WASM SDK and tools using the bootstrap method
+    curl https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/bootstrap.sh | SKIP_GHC=1 sh && \
+    # Add WASM release channel to ghcup
+    ghcup config add-release-channel https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/ghcup-wasm-0.0.9.yaml && \
+    # Set up environment for WASM toolchain
+    export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH" && \
+    # Create missing tool symlinks that the configure script expects
+    ln -sf ~/.ghc-wasm/wasi-sdk/bin/nm ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-nm && \
+    ln -sf ~/.ghc-wasm/wasi-sdk/bin/strip ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-strip && \
+    # Install WASM GHC with proper configuration
+    ghcup install ghc wasm32-wasi-9.12.2.20250327 && \
+    echo "✅ WASM GHC toolchain installed successfully"
+
+# Set up WASM environment variables for all sessions
+RUN echo 'export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH"' >> ~/.bashrc && \
+    echo 'export WASI_SYSROOT="${HOME}/.ghc-wasm/wasi-sdk/share/wasi-sysroot"' >> ~/.bashrc
 
 ENV PATH="/home/dev/.cabal/bin:/home/dev/.ghcup/bin:/home/dev/.local/bin:$PATH"
 # Install Ormolu (Haskell formatter) as binary
@@ -78,7 +93,7 @@ COPY build_context/deps-list.txt /tmp/deps-list.txt
 RUN mkdir -p /tmp/preload-deps && \
     cd /tmp/preload-deps && \
     echo "packages: ." > cabal.project && \
-    echo "with-compiler: ghc-9.12.2" >> cabal.project && \
+    echo "with-compiler: ghc" >> cabal.project && \
     echo "index-state: 2025-08-15T19:06:45Z" >> cabal.project && \
     echo "cabal-version: 2.0" > preload-deps.cabal && \
     echo "name:                preload-deps" >> preload-deps.cabal && \
@@ -128,7 +143,8 @@ echo 'cabal --version' >> ~/.local/bin/show-haskell-versions && \
 echo 'stack --version' >> ~/.local/bin/show-haskell-versions && \
 echo 'echo ""' >> ~/.local/bin/show-haskell-versions && \
 echo 'echo "=== WASM Toolchain ==="' >> ~/.local/bin/show-haskell-versions && \
-echo 'echo "WASM support temporarily disabled - will be added in future update"' >> ~/.local/bin/show-haskell-versions && \
+echo 'wasm32-wasi-ghc-9.12.2.20250327 --version || echo "WASM GHC not available"' >> ~/.local/bin/show-haskell-versions && \
+echo 'wasm-ld --version || echo "WASM linker not available"' >> ~/.local/bin/show-haskell-versions && \
 chmod +x ~/.local/bin/show-haskell-versions
 # Create usage documentation
 RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md && \
