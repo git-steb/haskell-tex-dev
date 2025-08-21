@@ -20,7 +20,7 @@ fi
 
 # Build base layer
 echo "🏗️  Building base layer..."
-docker build \
+sudo docker build \
     --file build_context/Dockerfile.base \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:base-${VERSION}" \
@@ -37,7 +37,7 @@ fi
 # Build haskell layer (depends on base)
 echo ""
 echo "🏗️  Building haskell layer..."
-docker build \
+sudo docker build \
     --file build_context/Dockerfile.haskell \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:base-${VERSION}" \
     --build-arg VERSION="$VERSION" \
@@ -55,7 +55,7 @@ fi
 # Build tex layer (depends on haskell)
 echo ""
 echo "🏗️  Building tex layer..."
-docker build \
+sudo docker build \
     --file build_context/Dockerfile.tex \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:haskell-${VERSION}" \
     --build-arg VERSION="$VERSION" \
