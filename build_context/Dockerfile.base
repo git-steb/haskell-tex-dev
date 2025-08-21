@@ -24,6 +24,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     xz-utils \
     bzip2 \
     gzip \
+    zstd \
+    unzstd \
     libssl-dev \
     zlib1g-dev \
     libbz2-dev \
