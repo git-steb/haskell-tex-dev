@@ -176,6 +176,86 @@ RUN mkdir -p /tmp/preload-deps && \
     echo "=== DEBUG: Starting cabal build ===" && \
     cabal build --only-dependencies
 
+# =============================================================================
+# PRE-LOAD ADDITIONAL HASKELL DEPENDENCIES FOR HOMOMORPHOSIS PROJECT
+# =============================================================================
+
+# Create a second temporary cabal project for additional dependencies
+RUN mkdir -p /tmp/preload-additional-deps && \
+    cd /tmp/preload-additional-deps && \
+    echo "packages: ." > cabal.project && \
+    echo "with-compiler: ghc" >> cabal.project && \
+    echo "index-state: 2025-08-15T19:06:45Z" >> cabal.project && \
+    echo "cabal-version: 2.0" > preload-additional-deps.cabal && \
+    echo "name:                preload-additional-deps" >> preload-additional-deps.cabal && \
+    echo "version:             0.1.0" >> preload-additional-deps.cabal && \
+    echo "license:             MIT" >> preload-additional-deps.cabal && \
+    echo "build-type:          Simple" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
+    echo "library" >> preload-additional-deps.cabal && \
+    echo "  hs-source-dirs:      src" >> preload-additional-deps.cabal && \
+    echo "  default-language:    GHC2021" >> preload-additional-deps.cabal && \
+    echo "  default-extensions:  OverloadedStrings, DeriveGeneric" >> preload-additional-deps.cabal && \
+    echo "  build-depends:       \\" >> preload-additional-deps.cabal && \
+    echo "    -- ESSENTIAL: Core web and communication libraries" >> preload-additional-deps.cabal && \
+    echo "    base >= 4.16 && < 5," >> preload-additional-deps.cabal && \
+    echo "    text >= 1.2 && < 3," >> preload-additional-deps.cabal && \
+    echo "    bytestring >= 0.10 && < 1.3," >> preload-additional-deps.cabal && \
+    echo "    aeson >= 1.5 && < 2.2," >> preload-additional-deps.cabal && \
+    echo "    containers >= 0.6 && < 0.7," >> preload-additional-deps.cabal && \
+    echo "    time >= 1.9 && < 1.14," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- ESSENTIAL: WebSocket and HTTP server libraries" >> preload-additional-deps.cabal && \
+    echo "    websockets >= 0.12 && < 0.14," >> preload-additional-deps.cabal && \
+    echo "    wai >= 3.2 && < 3.9," >> preload-additional-deps.cabal && \
+    echo "    wai-cors >= 0.1 && < 0.2," >> preload-additional-deps.cabal && \
+    echo "    warp >= 3.3 && < 3.4," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- ESSENTIAL: Miso frontend framework" >> preload-additional-deps.cabal && \
+    echo "    miso >= 1.8 && < 1.9," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- IMPORTANT: Concurrency and STM" >> preload-additional-deps.cabal && \
+    echo "    stm >= 2.5 && < 2.6," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- IMPORTANT: Process and system interaction" >> preload-additional-deps.cabal && \
+    echo "    process >= 1.6 && < 1.7," >> preload-additional-deps.cabal && \
+    echo "    directory >= 1.3 && < 1.4," >> preload-additional-deps.cabal && \
+    echo "    filepath >= 1.4 && < 1.5," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- USEFUL: Serialization and binary formats" >> preload-additional-deps.cabal && \
+    echo "    serialise >= 0.2 && < 0.3," >> preload-additional-deps.cabal && \
+    echo "    cborg >= 0.2 && < 0.3," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- USEFUL: Logging and debugging" >> preload-additional-deps.cabal && \
+    echo "    mtl >= 2.2 && < 2.4," >> preload-additional-deps.cabal && \
+    echo "    transformers >= 0.5 && < 0.7," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- OPTIONAL: Additional utilities" >> preload-additional-deps.cabal && \
+    echo "    random >= 1.2 && < 1.3," >> preload-additional-deps.cabal && \
+    echo "    uuid >= 1.3 && < 1.4," >> preload-additional-deps.cabal && \
+    echo "    hashable >= 1.3 && < 1.5," >> preload-additional-deps.cabal && \
+    echo "    unordered-containers >= 0.2 && < 0.3," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- OPTIONAL: Template Haskell and code generation" >> preload-additional-deps.cabal && \
+    echo "    template-haskell >= 2.16 && < 2.21," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- OPTIONAL: Advanced type system features" >> preload-additional-deps.cabal && \
+    echo "    lens >= 5.0 && < 5.3," >> preload-additional-deps.cabal && \
+    echo "    profunctors >= 5.6 && < 5.7," >> preload-additional-deps.cabal && \
+    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "    -- OPTIONAL: Testing and development tools" >> preload-additional-deps.cabal && \
+    echo "    hspec >= 2.8 && < 2.12," >> preload-additional-deps.cabal && \
+    echo "    quickcheck >= 2.14 && < 2.15," >> preload-additional-deps.cabal && \
+    echo "    tasty >= 1.4 && < 1.5," >> preload-additional-deps.cabal && \
+    echo "    tasty-hspec >= 1.1 && < 1.2" >> preload-additional-deps.cabal && \
+    mkdir -p src && \
+    echo 'module PreloadAdditionalDeps where' > src/PreloadAdditionalDeps.hs && \
+    echo "=== DEBUG: Starting additional dependencies build ===" && \
+    cabal build --only-dependencies
+
+# Clean up temporary files
+RUN rm -rf /tmp/preload-additional-deps
+
 # Clean up temporary files
 RUN rm -rf /tmp/preload-deps
 
@@ -201,6 +281,11 @@ RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md &
     echo "- Python 3 with virtual environment for CI tools" >> ~/README-haskell.md && \
     echo "- Node.js and npm for web development" >> ~/README-haskell.md && \
     echo "- Pre-loaded common Haskell dependencies for faster builds" >> ~/README-haskell.md && \
+    echo "- Miso frontend framework for web development" >> ~/README-haskell.md && \
+    echo "- WebSocket and HTTP server libraries (wai, warp, websockets)" >> ~/README-haskell.md && \
+    echo "- Serialization libraries (aeson, serialise, cborg)" >> ~/README-haskell.md && \
+    echo "- Testing frameworks (hspec, tasty, quickcheck)" >> ~/README-haskell.md && \
+    echo "- Advanced type system libraries (lens, profunctors)" >> ~/README-haskell.md && \
     echo "- jq and gh tools pre-installed in base layer" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
     echo "## Quick Start" >> ~/README-haskell.md && \
@@ -222,6 +307,16 @@ RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md &
     echo "```bash" >> ~/README-haskell.md && \
     echo "# WASM support temporarily disabled - will be added in future update" >> ~/README-haskell.md && \
     echo "# ghc -target wasm32-wasi -o app.wasm Main.hs" >> ~/README-haskell.md && \
+    echo "```" >> ~/README-haskell.md && \
+    echo "" >> ~/README-haskell.md && \
+    echo "### Miso frontend development:" >> ~/README-haskell.md && \
+    echo "```bash" >> ~/README-haskell.md && \
+    echo "# Create a Miso web application" >> ~/README-haskell.md && \
+    echo "cabal init my-miso-app" >> ~/README-haskell.md && \
+    echo "cd my-miso-app" >> ~/README-haskell.md && \
+    echo "# Add miso to build-depends in .cabal file" >> ~/README-haskell.md && \
+    echo "cabal build" >> ~/README-haskell.md && \
+    echo "cabal run" >> ~/README-haskell.md && \
     echo "```" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
     echo "### Add TeX support (for HASM applications):" >> ~/README-haskell.md && \
@@ -275,9 +370,4 @@ USER dev
 
 # Set default command
 CMD ["/bin/bash"]
-# Trigger build
-# Trigger build with full-latest fix
-# Trigger Docker build
-# Trigger build with full-latest fix
-# Trigger build with base layer fix
-# Trigger Docker build to publish container
+
