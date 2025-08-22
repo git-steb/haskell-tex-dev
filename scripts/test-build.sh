@@ -16,19 +16,19 @@ if sudo docker build \
     --file build_context/Dockerfile.base \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:base-test" \
-    . > /tmp/base-build.log 2>&1; then
+    . 2>&1 | tee /tmp/base-build.log; then
     echo "✅ Base layer build successful"
     
     # Test that unzip and unzstd are available
     echo "🔍 Testing required tools..."
-    if sudo docker run --rm "${LOCAL_TAG}:base-test" unzip -v > /dev/null 2>&1; then
+    if sudo docker run --rm "${LOCAL_TAG}:base-test" unzip -v; then
         echo "✅ unzip is available"
     else
         echo "❌ unzip is missing"
         exit 1
     fi
     
-    if sudo docker run --rm "${LOCAL_TAG}:base-test" unzstd -V > /dev/null 2>&1; then
+    if sudo docker run --rm "${LOCAL_TAG}:base-test" unzstd -V; then
         echo "✅ unzstd is available"
     else
         echo "❌ unzstd is missing"
@@ -40,8 +40,7 @@ if sudo docker build \
     
 else
     echo "❌ Base layer build failed"
-    echo "📋 Build log:"
-    cat /tmp/base-build.log
+    echo "📋 Full build log saved to: /tmp/base-build.log"
     exit 1
 fi
 
