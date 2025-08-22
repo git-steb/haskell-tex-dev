@@ -80,29 +80,30 @@ RUN echo "🔧 Setting up WASM toolchain via ghcup..." && \
     echo "WASI_SYSROOT: $WASI_SYSROOT" && \
     echo "CC: $CC" && \
     echo "CXX: $CXX" && \
-    # Try WASM GHC installation with proper environment
-    echo "🔧 Attempting WASM GHC installation..." && \
-    if ghcup install ghc wasm32-wasi-9.12.20250327 --verbose; then \
-        echo "✅ WASM GHC toolchain installed successfully"; \
-    else \
-        echo "⚠️  WASM GHC installation failed, trying alternative approach..." && \
-        # Try without explicit host specification (let ghcup auto-detect)
-        if ghcup install ghc wasm32-wasi-9.12.20250327 --verbose --no-set; then \
-            echo "✅ WASM GHC toolchain installed successfully (alternative method)"; \
+            # Check available WASM GHC versions first
+        echo "🔧 Checking available WASM GHC versions..." && \
+        ghcup list -t ghc | grep -i wasm || echo "No WASM versions listed" && \
+        echo "🔧 Attempting WASM GHC installation..." && \
+        # Try different version formats that might be available
+        if ghcup install ghc wasm32-wasi-9.12.2.20250327 --verbose; then \
+            echo "✅ WASM GHC toolchain installed successfully (format: 9.12.2.20250327)"; \
+        elif ghcup install ghc wasm32-wasi-9.10.1.20240511 --verbose; then \
+            echo "✅ WASM GHC toolchain installed successfully (format: 9.10.1.20240511)"; \
+        elif ghcup install ghc wasm32-wasi-9.8.2.20240223 --verbose; then \
+            echo "✅ WASM GHC toolchain installed successfully (format: 9.8.2.20240223)"; \
         else \
-            echo "⚠️  WASM GHC installation failed, capturing detailed logs..." && \
+            echo "⚠️  WASM GHC installation failed for all attempted versions" && \
+            echo "📋 Available GHC versions:" && \
+            ghcup list -t ghc || echo "Failed to list GHC versions" && \
             echo "📋 GHCup logs directory:" && \
             ls -la /home/dev/.ghcup/logs/ 2>/dev/null || echo "No logs directory found" && \
             echo "📋 Recent log files:" && \
-            find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec ls -la {} \; 2>/dev/null | tail -10 || echo "No log files found" && \
+            find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec ls -la {} \; 2>/dev/null | tail -5 || echo "No log files found" && \
             echo "📋 Latest log content:" && \
-            find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec tail -50 {} \; 2>/dev/null | head -100 || echo "No log content found" && \
-            echo "📋 Config.log from GHC installation (if exists):" && \
-            find /home/dev/.ghcup/tmp/ -name "config.log" -type f -exec cat {} \; 2>/dev/null | head -100 || echo "No config.log found" && \
+            find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec tail -20 {} \; 2>/dev/null | head -50 || echo "No log content found" && \
             echo "⚠️  Continuing without WASM GHC - you can install it manually later" && \
-            echo "💡 To install manually: ghcup install ghc wasm32-wasi-9.12.20250327"; \
-        fi; \
-    fi
+            echo "💡 Check available versions with: ghcup list -t ghc | grep wasm"; \
+        fi
 
 # Set up WASM environment variables for all sessions
 RUN echo 'export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH"' >> ~/.bashrc && \
