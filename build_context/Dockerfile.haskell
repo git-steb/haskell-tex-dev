@@ -185,63 +185,8 @@ RUN mkdir -p /tmp/preload-deps && \
 # Create a temporary cabal project for additional dependencies
 RUN mkdir -p /tmp/preload-additional-deps && \
     cd /tmp/preload-additional-deps && \
-    echo "packages: ." > cabal.project && \
-    echo "with-compiler: ghc" >> cabal.project && \
-    echo "index-state: 2025-08-15T19:06:45Z" >> cabal.project && \
-    echo "cabal-version: 2.0" > preload-additional-deps.cabal && \
-    echo "name:                preload-additional-deps" >> preload-additional-deps.cabal && \
-    echo "version:             0.1.0" >> preload-additional-deps.cabal && \
-    echo "license:             MIT" >> preload-additional-deps.cabal && \
-    echo "build-type:          Simple" >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "library" >> preload-additional-deps.cabal && \
-    echo "  hs-source-dirs:      src" >> preload-additional-deps.cabal && \
-    echo "  default-language:    GHC2021" >> preload-additional-deps.cabal && \
-    echo "  default-extensions:  OverloadedStrings, DeriveGeneric" >> preload-additional-deps.cabal && \
-    echo "  build-depends:" >> preload-additional-deps.cabal && \
-    echo "    -- CORE: Essential libraries (open ranges for discoverability)" >> preload-additional-deps.cabal && \
-    echo "    base >= 4.16 && < 5," >> preload-additional-deps.cabal && \
-    echo "    text >= 1.2," >> preload-additional-deps.cabal && \
-    echo "    bytestring >= 0.10," >> preload-additional-deps.cabal && \
-    echo "    aeson >= 1.5," >> preload-additional-deps.cabal && \
-    echo "    containers >= 0.6," >> preload-additional-deps.cabal && \
-    echo "    time >= 1.9," >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "    -- WEB: Server and communication (stable versions)" >> preload-additional-deps.cabal && \
-    echo "    websockets >= 0.12," >> preload-additional-deps.cabal && \
-    echo "    wai >= 3.2," >> preload-additional-deps.cabal && \
-    echo "    wai-cors >= 0.1," >> preload-additional-deps.cabal && \
-    echo "    warp >= 3.3," >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "    -- FRONTEND: Miso framework (stable)" >> preload-additional-deps.cabal && \
-    echo "    miso >= 1.8," >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "    -- CONCURRENCY: STM and async (open ranges)" >> preload-additional-deps.cabal && \
-    echo "    stm >= 2.5," >> preload-additional-deps.cabal && \
-    echo "    async >= 2.2," >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "    -- SYSTEM: Process and file handling (open ranges)" >> preload-additional-deps.cabal && \
-    echo "    process >= 1.6," >> preload-additional-deps.cabal && \
-    echo "    directory >= 1.3," >> preload-additional-deps.cabal && \
-    echo "    filepath >= 1.4," >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "    -- DATA: Serialization and binary (open ranges)" >> preload-additional-deps.cabal && \
-    echo "    serialise >= 0.2," >> preload-additional-deps.cabal && \
-    echo "    cborg >= 0.2," >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "    -- UTILS: Common utilities (open ranges)" >> preload-additional-deps.cabal && \
-    echo "    mtl >= 2.2," >> preload-additional-deps.cabal && \
-    echo "    transformers >= 0.5," >> preload-additional-deps.cabal && \
-    echo "    random >= 1.2," >> preload-additional-deps.cabal && \
-    echo "    uuid >= 1.3," >> preload-additional-deps.cabal && \
-    echo "    hashable >= 1.3," >> preload-additional-deps.cabal && \
-    echo "    unordered-containers >= 0.2," >> preload-additional-deps.cabal && \
-    echo "" >> preload-additional-deps.cabal && \
-    echo "    -- DEV: Testing and development (open ranges)" >> preload-additional-deps.cabal && \
-    echo "    hspec >= 2.8," >> preload-additional-deps.cabal && \
-    echo "    QuickCheck >= 2.14," >> preload-additional-deps.cabal && \
-    echo "    tasty >= 1.4," >> preload-additional-deps.cabal && \
-    echo "    tasty-hspec >= 1.1" >> preload-additional-deps.cabal && \
+    printf "packages: .\nwith-compiler: ghc\nindex-state: 2025-08-15T19:06:45Z\n" > cabal.project && \
+    printf "cabal-version: 2.0\nname:                preload-additional-deps\nversion:             0.1.0\nlicense:             MIT\nbuild-type:          Simple\n\nlibrary\n  hs-source-dirs:      src\n  default-language:    GHC2021\n  default-extensions:  OverloadedStrings, DeriveGeneric\n  build-depends:\n    -- CORE: Essential libraries (open ranges for discoverability)\n    base >= 4.16 && < 5,\n    text >= 1.2,\n    bytestring >= 0.10,\n    aeson >= 1.5,\n    containers >= 0.6,\n    time >= 1.9,\n\n    -- WEB: Server and communication (stable versions)\n    websockets >= 0.12,\n    wai >= 3.2,\n    wai-cors >= 0.1,\n    warp >= 3.3,\n\n    -- FRONTEND: Miso framework (stable)\n    miso >= 1.8,\n\n    -- CONCURRENCY: STM and async (open ranges)\n    stm >= 2.5,\n    async >= 2.2,\n\n    -- SYSTEM: Process and file handling (open ranges)\n    process >= 1.6,\n    directory >= 1.3,\n    filepath >= 1.4,\n\n    -- DATA: Serialization and binary (open ranges)\n    serialise >= 0.2,\n    cborg >= 0.2,\n\n    -- UTILS: Common utilities (open ranges)\n    mtl >= 2.2,\n    transformers >= 0.5,\n    random >= 1.2,\n    uuid >= 1.3,\n    hashable >= 1.3,\n    unordered-containers >= 0.2,\n\n    -- DEV: Testing and development (open ranges)\n    hspec >= 2.8,\n    QuickCheck >= 2.14,\n    tasty >= 1.4,\n    tasty-hspec >= 1.1\n" > preload-additional-deps.cabal && \
     mkdir -p src && \
     echo 'module PreloadAdditionalDeps where' > src/PreloadAdditionalDeps.hs && \
     echo "=== PRE-LOADING: Additional Haskell dependencies ===" && \
