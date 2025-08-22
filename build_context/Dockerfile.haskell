@@ -198,7 +198,7 @@ RUN mkdir -p /tmp/preload-additional-deps && \
     echo "  hs-source-dirs:      src" >> preload-additional-deps.cabal && \
     echo "  default-language:    GHC2021" >> preload-additional-deps.cabal && \
     echo "  default-extensions:  OverloadedStrings, DeriveGeneric" >> preload-additional-deps.cabal && \
-    echo "  build-depends:       \\" >> preload-additional-deps.cabal && \
+    echo "  build-depends:" >> preload-additional-deps.cabal && \
     echo "    -- CORE: Essential libraries (open ranges for discoverability)" >> preload-additional-deps.cabal && \
     echo "    base >= 4.16 && < 5," >> preload-additional-deps.cabal && \
     echo "    text >= 1.2," >> preload-additional-deps.cabal && \
@@ -206,29 +206,29 @@ RUN mkdir -p /tmp/preload-additional-deps && \
     echo "    aeson >= 1.5," >> preload-additional-deps.cabal && \
     echo "    containers >= 0.6," >> preload-additional-deps.cabal && \
     echo "    time >= 1.9," >> preload-additional-deps.cabal && \
-    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
     echo "    -- WEB: Server and communication (stable versions)" >> preload-additional-deps.cabal && \
     echo "    websockets >= 0.12," >> preload-additional-deps.cabal && \
     echo "    wai >= 3.2," >> preload-additional-deps.cabal && \
     echo "    wai-cors >= 0.1," >> preload-additional-deps.cabal && \
     echo "    warp >= 3.3," >> preload-additional-deps.cabal && \
-    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
     echo "    -- FRONTEND: Miso framework (stable)" >> preload-additional-deps.cabal && \
     echo "    miso >= 1.8," >> preload-additional-deps.cabal && \
-    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
     echo "    -- CONCURRENCY: STM and async (open ranges)" >> preload-additional-deps.cabal && \
     echo "    stm >= 2.5," >> preload-additional-deps.cabal && \
     echo "    async >= 2.2," >> preload-additional-deps.cabal && \
-    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
     echo "    -- SYSTEM: Process and file handling (open ranges)" >> preload-additional-deps.cabal && \
     echo "    process >= 1.6," >> preload-additional-deps.cabal && \
     echo "    directory >= 1.3," >> preload-additional-deps.cabal && \
     echo "    filepath >= 1.4," >> preload-additional-deps.cabal && \
-    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
     echo "    -- DATA: Serialization and binary (open ranges)" >> preload-additional-deps.cabal && \
     echo "    serialise >= 0.2," >> preload-additional-deps.cabal && \
     echo "    cborg >= 0.2," >> preload-additional-deps.cabal && \
-    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
     echo "    -- UTILS: Common utilities (open ranges)" >> preload-additional-deps.cabal && \
     echo "    mtl >= 2.2," >> preload-additional-deps.cabal && \
     echo "    transformers >= 0.5," >> preload-additional-deps.cabal && \
@@ -236,10 +236,10 @@ RUN mkdir -p /tmp/preload-additional-deps && \
     echo "    uuid >= 1.3," >> preload-additional-deps.cabal && \
     echo "    hashable >= 1.3," >> preload-additional-deps.cabal && \
     echo "    unordered-containers >= 0.2," >> preload-additional-deps.cabal && \
-    echo "    \\" >> preload-additional-deps.cabal && \
+    echo "" >> preload-additional-deps.cabal && \
     echo "    -- DEV: Testing and development (open ranges)" >> preload-additional-deps.cabal && \
     echo "    hspec >= 2.8," >> preload-additional-deps.cabal && \
-    echo "    quickcheck >= 2.14," >> preload-additional-deps.cabal && \
+    echo "    QuickCheck >= 2.14," >> preload-additional-deps.cabal && \
     echo "    tasty >= 1.4," >> preload-additional-deps.cabal && \
     echo "    tasty-hspec >= 1.1" >> preload-additional-deps.cabal && \
     mkdir -p src && \
