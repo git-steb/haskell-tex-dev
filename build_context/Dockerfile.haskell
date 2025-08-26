@@ -13,7 +13,11 @@ ARG VERSION
 COPY build_context/versions.env /tmp/versions.env
 RUN set -a && . /tmp/versions.env && set +a && \
     echo "Loaded versions: VERSION=$VERSION, GHC_VERSION=$GHC_VERSION, CABAL_VERSION=$CABAL_VERSION" && \
-    echo "🔍 Debug: GHC_VERSION variable value: '$GHC_VERSION'"
+    echo "🔍 Debug: GHC_VERSION variable value: '$GHC_VERSION'" && \
+    echo "export GHC_VERSION=$GHC_VERSION" >> /tmp/ghc_env.sh && \
+    echo "export CABAL_VERSION=$CABAL_VERSION" >> /tmp/ghc_env.sh && \
+    echo "export STACK_VERSION=$STACK_VERSION" >> /tmp/ghc_env.sh && \
+    echo "export HLS_VERSION=$HLS_VERSION" >> /tmp/ghc_env.sh
 
 # Root for system dependencies
 USER root
@@ -47,11 +51,38 @@ USER dev
 # Note: GHC 9.12.2 uses Ubuntu 22.04 packages (Ubuntu 24.04 packages not yet available)
 RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 GHCUP_INSTALL_BASE_PREFIX=/home/dev sh
 ENV PATH="/home/dev/.ghcup/bin:$PATH"
-RUN ghcup install cabal ${CABAL_VERSION} && ghcup set cabal ${CABAL_VERSION}
-RUN ghcup install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
-RUN echo "🔍 Debug: Installing GHC version: ${GHC_VERSION}" && \
-    ghcup install ghc ${GHC_VERSION} && ghcup set ghc ${GHC_VERSION}
+
+# Load version variables for this layer
+RUN . /tmp/ghc_env.sh && \
+    echo "🔍 Debug: GHC_VERSION loaded: $GHC_VERSION" && \
+    echo "🔍 Debug: CABAL_VERSION loaded: $CABAL_VERSION" && \
+    echo "🔍 Debug: STACK_VERSION loaded: $STACK_VERSION"
+
+RUN . /tmp/ghc_env.sh && ghcup install cabal ${CABAL_VERSION} && ghcup set cabal ${CABAL_VERSION}
+RUN . /tmp/ghc_env.sh && ghcup install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
+RUN . /tmp/ghc_env.sh && echo "🔍 Debug: Installing GHC version: ${GHC_VERSION}" && \
+    ghcup install ghc ${GHC_VERSION} && \
+    ghcup set ghc ${GHC_VERSION} && \
+    echo "🔍 Debug: Verifying GHC installation..." && \
+    ghc --version && \
+    echo "🔍 Debug: Current GHC version from ghcup:" && \
+    ghcup list -t ghc | grep "✔" && \
+    echo "🔍 Debug: Expected GHC version: ${GHC_VERSION}"
 RUN ghc --supported-targets | grep -i wasm || echo "WASM target not found"
+
+# Verify GHC version is correct
+RUN . /tmp/ghc_env.sh && echo "🔍 Final GHC version verification:" && \
+    ghc --version && \
+    echo "🔍 Expected version: ${GHC_VERSION}" && \
+    if ! ghc --version | grep -q "${GHC_VERSION}"; then \
+        echo "❌ ERROR: GHC version mismatch! Expected ${GHC_VERSION} but got:" && \
+        ghc --version && \
+        echo "📋 Available GHC versions:" && \
+        ghcup list -t ghc && \
+        exit 1; \
+    else \
+        echo "✅ GHC version verification passed"; \
+    fi
 
 # Install WASM GHC toolchain via ghcup
 # This enables compilation to WebAssembly for web demos and embedded use
