@@ -28,6 +28,10 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libssl-dev \
     zlib1g-dev \
     libbz2-dev \
+    pkg-config \
+    python3-dev \
+    libpython3-dev \
+    libpython3.12-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -79,5 +83,5 @@ LABEL org.opencontainers.image.title="Haskell TeX Dev Base"
 LABEL architecture="parallel-layers"
 LABEL usage="Base for parallel TeX and Haskell toolchain layers"
 LABEL version="v${VERSION}"
-LABEL optimizations="jq-gh-tools,flexible-volume-mounting"
-LABEL features="fixuid,tini,flexible-uid-gid"
+LABEL optimizations="jq-gh-tools,flexible-volume-mounting,python-dev-packages"
+LABEL features="fixuid,tini,flexible-uid-gid,python-ffi"
