@@ -1,7 +1,8 @@
 # Common Haskell dependencies to pre-load in the haskell-tex-dev image
 # This file is used by Dockerfile.haskell to pre-install dependencies for faster builds
-# Update this list when adding new dependencies to the homeomorphosis project
+# Updated to match homeomorphosis project dependencies for optimal caching
 
+# Core dependencies
 base
 text
 aeson
@@ -31,3 +32,27 @@ network
 unordered-containers
 binary
 QuickCheck
+
+# Web and XML processing (added for homeomorphosis project)
+wreq
+xml
+xml-conduit
+xml-types
+html-conduit
+html-entities
+tagsoup
+websockets
+wai
+wai-cors
+wai-websockets
+warp
+miso
+pandoc-types
+lens
+wai-middleware-static
+blaze-html
+blaze-markup
+crypto-api
+crypto-pubkey-types
+expiring-cache-map
+authenticate-oauth
