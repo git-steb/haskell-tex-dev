@@ -1,12 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Local Docker Image Builder
 # Usage: ./scripts/build-local.sh [version]
-# Example: ./scripts/build-local.sh 1.2.6
+# Example: ./scripts/build-local.sh 1.3.0
 
-VERSION="${1:-$(cat VERSION 2>/dev/null || echo '1.2.6')}"
+VERSION="${1:-$(cat VERSION 2>/dev/null || echo '1.3.0')}"
 LOCAL_TAG="local/haskell-tex-dev"
+
+docker_bin() {
+  if docker info >/dev/null 2>&1; then
+    docker "$@"
+  else
+    sudo docker "$@"
+  fi
+}
 
 echo "🔨 Building Docker images locally (version: $VERSION)"
 echo "📋 This will build: base -> haskell -> tex (layered approach)"
@@ -37,7 +45,7 @@ fi
 # Build haskell layer (depends on base)
 echo ""
 echo "🏗️  Building haskell layer..."
-sudo docker build \
+docker_bin build \
     --file build_context/Dockerfile.haskell \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:base-${VERSION}" \
     --build-arg VERSION="$VERSION" \
@@ -55,7 +63,7 @@ fi
 # Build tex layer (depends on haskell)
 echo ""
 echo "🏗️  Building tex layer..."
-sudo docker build \
+docker_bin build \
     --file build_context/Dockerfile.tex \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:haskell-${VERSION}" \
     --build-arg VERSION="$VERSION" \

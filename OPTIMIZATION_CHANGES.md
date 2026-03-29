@@ -1,13 +1,13 @@
 # Docker Caching Optimization Changes
 
 ## Overview
-Applied comprehensive Docker caching improvements to address lengthy CI build times in the homeomorphosis project. These changes optimize the haskell-tex-dev image for better dependency caching and faster builds.
+Applied comprehensive Docker caching improvements to address lengthy CI build times for consumers of this image. These changes optimize the haskell-tex-dev image for better dependency caching and faster builds.
 
 ## Changes Made
 
 ### 1. Updated Dependency List (`build_context/deps-list.txt`)
 **Problem**: Missing critical packages causing CI rebuilds
-**Solution**: Added 22 missing packages that the homeomorphosis project uses:
+**Solution**: Added 22 missing packages commonly required by large Haskell CI builds:
 
 ```bash
 # Added web and XML processing packages:

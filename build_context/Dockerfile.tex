@@ -179,7 +179,7 @@ RUN mkdir -p ~/.local/bin && \
 RUN echo "# Full Layer: Haskell + TeX Combined" > ~/README-full.md && \
     echo "" >> ~/README-full.md && \
     echo "## Features" >> ~/README-full.md && \
-    echo "- GHC 9.12.2 with native WebAssembly support" >> ~/README-full.md && \
+    echo "- Haskell toolchain: see build_context/versions.env (GHC + optional wasm cross-compiler)" >> ~/README-full.md && \
     echo "- Complete TeX Live with LuaTeX for Unicode support" >> ~/README-full.md && \
     echo "- Cabal, Stack, HLS, and Ormolu for Haskell development" >> ~/README-full.md && \
     echo "- User-mode TeX Live with tlmgr for package management" >> ~/README-full.md && \
@@ -232,7 +232,7 @@ RUN echo "# Full Layer: Haskell + TeX Combined" > ~/README-full.md && \
     echo "tlmgr --force install package-name" >> ~/README-full.md && \
     echo "```" >> ~/README-full.md && \
     echo "" >> ~/README-full.md && \
-    echo "## Homeomorphosis CI Support" >> ~/README-full.md && \
+    echo "## CI and automation" >> ~/README-full.md && \
     echo "" >> ~/README-full.md && \
     echo "This image is specifically designed to support:" >> ~/README-full.md && \
     echo "- **Lemma Validation**: Python scripts with numpy, pandas, matplotlib" >> ~/README-full.md && \
@@ -287,6 +287,6 @@ LABEL org.opencontainers.image.source="https://github.com/git-steb/haskell-tex-d
 LABEL org.opencontainers.image.description="Complete Haskell + TeX development environment"
 LABEL org.opencontainers.image.title="Haskell TeX Dev - Full Layer"
 LABEL layer="full"
-LABEL features="haskell,tex,ghc,wasm,cabal,stack,hls,luatex,unicode,homeomorphosis"
+LABEL features="haskell,tex,ghc,wasm,cabal,stack,hls,luatex,unicode,ci-optimized"
 LABEL usage="docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:latest"
 LABEL version="v${VERSION}"

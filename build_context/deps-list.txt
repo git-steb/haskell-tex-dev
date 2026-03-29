@@ -1,58 +1,92 @@
-# Common Haskell dependencies to pre-load in the haskell-tex-dev image
-# This file is used by Dockerfile.haskell to pre-install dependencies for faster builds
-# Updated to match homeomorphosis project dependencies for optimal caching
+# Pre-load list for haskell-tex-dev Haskell layer (Dockerfile.haskell → preload-deps).
+# Curated for large multi-package apps (HTTP/Servant, websockets, Miso, crypto, XML/HTML).
+# Regenerate when your Cabal build-depends change.
 
-# Core dependencies
+# --- GHC / core ---
 base
-text
-aeson
-bytestring
-containers
-cryptonite
-regex-tdfa
-yaml
-filepath
-directory
-mtl
-time
-http-conduit
-http-types
-random
-vector
-uuid
-aeson-pretty
-hashable
-exceptions
-scientific
-transformers
-process
-serialise
-stm
-network
-unordered-containers
-binary
-QuickCheck
+template-haskell
+deepseq
+array
 
-# Web and XML processing (added for homeomorphosis project)
-wreq
+# --- text / binary / data ---
+text
+bytestring
+aeson
+aeson-pretty
+yaml
+scientific
+binary
+serialise
+cborg
+base64-bytestring
+vector
+unordered-containers
+containers
+hashable
+uuid
+time
+
+# --- concurrency / control ---
+async
+stm
+mtl
+transformers
+exceptions
+resourcet
+comonad
+
+# --- networking / HTTP ---
+network
+case-insensitive
+http-types
+http-client
+http-conduit
+conduit
+conduit-extra
+# wreq: omitted from preload — does not build on GHC 9.14 yet (cryptonite/memory / AWS helper); use http-client in-app
+
+# --- web stack (Servant/Wai/Warp + Miso) ---
+wai
+wai-cors
+wai-websockets
+wai-middleware-static
+warp
+websockets
+servant
+servant-server
+miso
+
+# --- filesystem / process ---
+directory
+filepath
+process
+unix
+safe
+split
+
+# --- crypto ---
+cryptonite
+memory
+crypto-api
+crypto-pubkey-types
+
+# --- XML / HTML ---
 xml
 xml-conduit
 xml-types
 html-conduit
 html-entities
 tagsoup
-websockets
-wai
-wai-cors
-wai-websockets
-warp
-miso
-pandoc-types
-lens
-wai-middleware-static
 blaze-html
 blaze-markup
-crypto-api
-crypto-pubkey-types
-expiring-cache-map
+
+# --- optics / misc ---
+lens
+regex-tdfa
+random
+QuickCheck
+
+# --- pandoc / oauth (direct-install friends) ---
+pandoc-types
 authenticate-oauth
+expiring-cache-map

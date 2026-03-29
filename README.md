@@ -8,7 +8,7 @@ This repository provides a modular Docker image system with parallel layers that
 
 ```
 Ubuntu Base (24.04)
-├── Haskell Layer (GHC 9.12.2 + WASM)
+├── Haskell Layer (GHC 9.14.x + optional wasm32-wasi cross-GHC)
 ├── TeX Layer (TeX Live + LuaTeX)
 └── Full Layer (Haskell + TeX + Pandoc)
 ```
@@ -43,11 +43,11 @@ docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:tex-la
 ## 🛠️ **Features**
 
 ### **Haskell Layer**
-- **GHC 9.12.2** with native WebAssembly support
-- **Cabal 3.16.0.0** for package management
-- **HLS 2.10.0.0** for IDE support
-- **Stack 3.7.1** for project management
-- **Ormolu** for code formatting
+- **GHC 9.14.1** (pinned in `build_context/versions.env`; installable via GHCup)
+- **Cabal 3.16.1.0** for package management
+- **HLS 2.13.0.0** for IDE support (official bindists include GHC 9.14.1; some plugins are still catching up—see HLS release notes)
+- **Stack 3.9.3** for project management
+- **Ormolu** for code formatting (official **Linux x86_64** release zip into `~/.local/bin`, not `cabal install`, so it works on GHC 9.14)
 
 ### **TeX Layer**
 - **TeX Live** with LuaTeX for full Unicode support
@@ -105,6 +105,16 @@ pandoc -f markdown -t latex input.md -o output.tex
 
 ## 🔧 **Development**
 
+### **Host toolchain (same pins as the container)**
+Pins live in **`build_context/versions.env`** (and the image tag uses the **`VERSION`** file). From the repository root, after [GHCup](https://www.haskell.org/ghcup/) is on your `PATH` (`~/.ghcup/bin`):
+
+```bash
+chmod +x scripts/install-host-toolchain.sh
+./scripts/install-host-toolchain.sh
+```
+
+This reads **`build_context/versions.env`** and installs/sets **GHC**, **cabal-install**, **Stack**, **HLS**, then **Ormolu** via Cabal (matching the Haskell Docker layer). Use `--skip-hls` or `--dry-run` as needed.
+
 ### **Building Images Locally**
 ```bash
 # Build all layers
@@ -154,16 +164,23 @@ container:
 - **Independent updates** for Haskell vs TeX toolchains
 - **Flexible deployment** - choose what you need
 
-## 🆕 **What's New in v1.2.9**
+## 🆕 **What's New in v1.3.0**
 
-### **Major Performance Improvements**
+- **Toolchain refresh**: GHC **9.14.1**, Cabal **3.16.1.0**, Stack **3.9.3**, HLS **2.13.0.0** (pinned in `build_context/versions.env`, installed via GHCup)
+- **HLS + Ormolu**: HLS is installed with `ghcup`; Ormolu is built with Cabal into `~/.local/bin`
+- **Build arg** `WITH_HLS=0` skips HLS for smaller images
+- See [CHANGELOG.md](CHANGELOG.md) for migration notes (GHC major bump)
+
+## **Earlier: v1.2.9**
+
+### **Major Performance Improvements (v1.2.9)**
 - **Python FFI Support**: Full Python development libraries pre-installed for seamless FFI integration
 - **Comprehensive Dependency Caching**: 22+ critical packages pre-loaded including web frameworks, XML processing, and crypto libraries
 - **Optimized Build Times**: 60-80% reduction in CI build times through intelligent dependency pre-loading
 - **Synchronized Index States**: Consistent Cabal package index across all builds
 
 ### **Pre-loaded Packages**
-- **Web Frameworks**: `wreq`, `websockets`, `wai`, `wai-cors`, `warp`, `miso`
+- **Web frameworks / HTTP**: `http-client`, `websockets`, `wai`, `wai-cors`, `warp`, `miso` (v1.3.0 drops **`wreq`** from preload only)
 - **XML/HTML Processing**: `xml`, `xml-conduit`, `html-conduit`, `html-entities`, `tagsoup`
 - **Additional Libraries**: `pandoc-types`, `lens`, `wai-middleware-static`, `blaze-html`, `blaze-markup`
 - **Crypto Libraries**: `crypto-api`, `crypto-pubkey-types`, `authenticate-oauth`

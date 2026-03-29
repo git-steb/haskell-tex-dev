@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1.7
-# Haskell Layer: GHC 9.12.2 with native WASM support
+# Haskell Layer: GHC (see versions.env) + optional WASM cross-GHC via ghc-wasm-meta
 # This layer is parallel to the TeX layer, both built on Ubuntu base
-# Can be combined with TeX layer when needed (e.g., for HASM applications)
 ARG BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-latest
 FROM ${BASE_IMAGE}
 
 # Build arguments for flexible toolchain versions
 # VERSION is read from the VERSION file in the repository root
 ARG VERSION
+# Install HLS via ghcup when 1 (default). Set 0 for a smaller image.
+ARG WITH_HLS=1
 
 # Load version definitions from versions.env
 COPY build_context/versions.env /tmp/versions.env
@@ -17,7 +18,8 @@ RUN set -a && . /tmp/versions.env && set +a && \
     echo "export GHC_VERSION=$GHC_VERSION" >> /tmp/ghc_env.sh && \
     echo "export CABAL_VERSION=$CABAL_VERSION" >> /tmp/ghc_env.sh && \
     echo "export STACK_VERSION=$STACK_VERSION" >> /tmp/ghc_env.sh && \
-    echo "export HLS_VERSION=$HLS_VERSION" >> /tmp/ghc_env.sh
+    echo "export HLS_VERSION=$HLS_VERSION" >> /tmp/ghc_env.sh && \
+    echo "export ORMOLU_VERSION=$ORMOLU_VERSION" >> /tmp/ghc_env.sh
 
 # Root for system dependencies
 USER root
@@ -51,7 +53,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install specific Haskell toolchain versions
 USER dev
-# Note: GHC 9.12.2 uses Ubuntu 22.04 packages (Ubuntu 24.04 packages not yet available)
+# Minimal ghcup bootstrap (install GHC/Cabal/Stack/HLS explicitly below)
 RUN curl -fsSL https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_MINIMAL=1 GHCUP_INSTALL_BASE_PREFIX=/home/dev sh
 ENV PATH="/home/dev/.ghcup/bin:$PATH"
 
@@ -85,6 +87,14 @@ RUN . /tmp/ghc_env.sh && echo "🔍 Final GHC version verification:" && \
         exit 1; \
     else \
         echo "✅ GHC version verification passed"; \
+    fi
+
+# Haskell Language Server (bindists matched to GHC_VERSION via ghcup)
+RUN . /tmp/ghc_env.sh && \
+    if [ "${WITH_HLS}" = "1" ]; then \
+      ghcup install hls "${HLS_VERSION}" && ghcup set hls "${HLS_VERSION}"; \
+    else \
+      echo "Skipping HLS (WITH_HLS!=1)"; \
     fi
 
 # Install WASM GHC toolchain via ghcup
@@ -150,9 +160,10 @@ RUN echo 'export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH"' >> ~/.bashrc && \
     echo 'export STRIP="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-strip"' >> ~/.bashrc
 
 ENV PATH="/home/dev/.cabal/bin:/home/dev/.ghcup/bin:/home/dev/.local/bin:$PATH"
-# Install Ormolu (Haskell formatter) as binary
-# Quick native and WASM smoke tests to catch regressions early
-RUN ghc --version && cabal --version && ( [ "${WITH_HLS}" = "1" ] && hls --version || echo "HLS not installed" ) || true
+# Smoke test: GHC, Cabal, optional HLS (ghcup installs haskell-language-server*)
+# Ormolu is installed in the next layer after cabal update
+RUN ghc --version && cabal --version && \
+    ( [ "${WITH_HLS}" = "1" ] && ( haskell-language-server-wrapper --version || haskell-language-server --version ) || echo "HLS not installed" ) || true
 
 # Set up Cabal configuration (using default configuration)
 RUN mkdir -p ~/.cabal
@@ -167,14 +178,17 @@ RUN --mount=type=cache,target=/home/dev/.cabal/store \
 COPY build_context/deps-list.txt /tmp/deps-list.txt
 # =============================================================================
 # This layer pre-installs common dependencies to speed up project builds
-# These are the most commonly used packages from the homeomorphosis project
+# Broad dependency warm-cache for typical Haskell web + service builds
 
 # Create a temporary cabal project and pre-install dependencies
 RUN mkdir -p /tmp/preload-deps && \
     cd /tmp/preload-deps && \
     echo "packages: ." > cabal.project && \
     echo "with-compiler: ghc" >> cabal.project && \
-    echo "index-state: 2025-09-23T01:29:59Z" >> cabal.project && \
+    echo "index-state: 2026-03-29T00:00:00Z" >> cabal.project && \
+    echo "reorder-goals: True" >> cabal.project && \
+    echo "max-backjumps: 20000" >> cabal.project && \
+    echo "allow-newer: uuid:time, *:base, *:template-haskell, monad-control:transformers-compat" >> cabal.project && \
     echo "cabal-version: 2.0" > preload-deps.cabal && \
     echo "name:                preload-deps" >> preload-deps.cabal && \
     echo "version:             0.1.0" >> preload-deps.cabal && \
@@ -211,98 +225,49 @@ RUN mkdir -p /tmp/preload-deps && \
     echo "=== DEBUG: Starting cabal build ===" && \
     cabal build --only-dependencies
 
-# =============================================================================
-# PRE-LOAD ADDITIONAL HASKELL DEPENDENCIES FOR HOMOMORPHOSIS PROJECT
-# =============================================================================
-# Strategy: Open constraints for discoverability, stable core for reliability
-# Focus: Essential web and data processing libraries with flexible version ranges
+# Single preload pass from deps-list.txt (avoids a second full solver pass).
 
-# Create a temporary cabal project for additional dependencies
-RUN mkdir -p /tmp/preload-additional-deps && \
-    cd /tmp/preload-additional-deps && \
-    printf "packages: .\nwith-compiler: ghc\nindex-state: 2025-09-23T01:29:59Z\n" > cabal.project && \
-    printf "cabal-version: 2.0\nname:                preload-additional-deps\nversion:             0.1.0\nlicense:             MIT\nbuild-type:          Simple\n\nlibrary\n  hs-source-dirs:      src\n  default-language:    GHC2021\n  default-extensions:  OverloadedStrings, DeriveGeneric\n  build-depends:\n    -- CORE: Essential libraries (open ranges for discoverability)\n    base >= 4.16 && < 5,\n    text >= 1.2,\n    bytestring >= 0.10,\n    aeson >= 1.5,\n    containers >= 0.6,\n    time >= 1.9,\n\n    -- WEB: Server and communication (stable versions)\n    websockets >= 0.12,\n    wai >= 3.2,\n    wai-cors >= 0.1,\n    warp >= 3.3,\n\n    -- FRONTEND: Miso framework (stable)\n    miso >= 1.8,\n\n    -- CONCURRENCY: STM and async (open ranges)\n    stm >= 2.5,\n    async >= 2.2,\n\n    -- SYSTEM: Process and file handling (open ranges)\n    process >= 1.6,\n    directory >= 1.3,\n    filepath >= 1.4,\n\n    -- DATA: Serialization and binary (open ranges)\n    serialise >= 0.2,\n    cborg >= 0.2,\n\n    -- UTILS: Common utilities (open ranges)\n    mtl >= 2.2,\n    transformers >= 0.5,\n    random >= 1.2,\n    uuid >= 1.3,\n    hashable >= 1.3,\n    unordered-containers >= 0.2,\n\n    -- DEV: Testing and development (open ranges)\n    hspec >= 2.8,\n    QuickCheck >= 2.14,\n    tasty >= 1.4,\n    tasty-hspec >= 1.1\n" > preload-additional-deps.cabal && \
-    mkdir -p src && \
-    echo 'module PreloadAdditionalDeps where' > src/PreloadAdditionalDeps.hs && \
-    echo "=== PRE-LOADING: Additional Haskell dependencies ===" && \
-    echo "Strategy: Open constraints for discoverability, stable core for reliability" && \
-    cabal build --only-dependencies
+# Clean up temporary project (keep Cabal store populated from preload-deps).
+RUN rm -rf /tmp/preload-deps /tmp/deps-list.txt || true
 
-# Clean up temporary files
-RUN rm -rf /tmp/preload-additional-deps
+# Ormolu: official Linux x86_64 bindist (cabal install ormolu conflicts with GHC 9.14 / base-4.22 until ghc-lib-parser catches up).
+RUN . /tmp/ghc_env.sh && \
+    mkdir -p ~/.local/bin && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+      curl -fsSL "https://github.com/tweag/ormolu/releases/download/${ORMOLU_VERSION}/ormolu-x86_64-linux.zip" -o /tmp/ormolu.zip && \
+      python3 -c "import zipfile, sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" /tmp/ormolu.zip ~/.local/bin && \
+      rm -f /tmp/ormolu.zip && \
+      chmod +x ~/.local/bin/ormolu && \
+      ~/.local/bin/ormolu --version; \
+    else \
+      echo "WARN: No official Ormolu bindist for $(uname -m); ~/.local/bin/ormolu not installed."; \
+    fi
 
-# Clean up temporary files
-RUN rm -rf /tmp/preload-deps
-
-# =============================================================================
-# DIRECT PACKAGE INSTALLATION FOR CRITICAL DEPENDENCIES
-# =============================================================================
-# Install the most commonly rebuilt packages directly to ensure they're cached
-# This addresses the specific packages causing lengthy CI builds
-
-RUN echo "🔧 Installing critical packages directly for optimal caching..." && \
-    cabal install --lib \
-    wreq-0.5.4.3 \
-    xml-1.3.14 \
-    xml-conduit-1.10.0.1 \
-    xml-types-0.3.8 \
-    html-conduit-1.3.2.2 \
-    html-entities-1.1.4.7 \
-    tagsoup \
-    websockets \
-    wai \
-    wai-cors \
-    wai-websockets \
-    warp \
-    miso \
-    pandoc-types \
-    lens \
-    wai-middleware-static \
-    blaze-html \
-    blaze-markup \
-    crypto-api \
-    crypto-pubkey-types \
-    expiring-cache-map \
-    authenticate-oauth \
-    --constraint="wreq==0.5.4.3" \
-    --constraint="xml==1.3.14" \
-    --constraint="xml-conduit==1.10.0.1" \
-    --constraint="xml-types==0.3.8" \
-    --constraint="html-conduit==1.3.2.2" \
-    --constraint="html-entities==1.1.4.7" \
-    --constraint="blaze-html==0.9.2.0" \
-    --constraint="blaze-markup==0.8.3.0" \
-    --constraint="crypto-api==0.13.3" \
-    --constraint="crypto-pubkey-types==0.4.3" \
-    --constraint="expiring-cache-map==0.0.6.1" \
-    --constraint="authenticate-oauth==1.7" \
-    --constraint="pandoc-types==1.23.1" \
-    --constraint="wai-middleware-static==0.9.3" \
-    || echo "⚠️  Some packages failed to install directly, will be available via project build"
-
-# Clean up cabal store and cache
-RUN cabal store gc --prune=all || true && rm -rf /home/dev/.cache/*
+# Do not run `cabal store gc --prune=all` here: it discards preloaded deps before the image is published.
+RUN rm -rf /home/dev/.cache/* || true
 # Create helpful documentation and scripts
 RUN mkdir -p ~/.local/bin && \
-echo 'ghc --version' >> ~/.local/bin/show-haskell-versions && \
-echo 'cabal --version' >> ~/.local/bin/show-haskell-versions && \
-echo 'stack --version' >> ~/.local/bin/show-haskell-versions && \
-echo 'echo ""' >> ~/.local/bin/show-haskell-versions && \
-echo 'echo "=== WASM Toolchain ==="' >> ~/.local/bin/show-haskell-versions && \
-echo 'wasm32-wasi-ghc-9.12.2.20250327 --version || echo "WASM GHC not available"' >> ~/.local/bin/show-haskell-versions && \
-echo 'wasm-ld --version || echo "WASM linker not available"' >> ~/.local/bin/show-haskell-versions && \
-chmod +x ~/.local/bin/show-haskell-versions
+    { \
+      echo 'ghc --version'; \
+      echo 'cabal --version'; \
+      echo 'stack --version'; \
+      echo 'haskell-language-server --version || echo "HLS not installed"'; \
+      echo '/home/dev/.local/bin/ormolu --version || echo "ormolu not found"'; \
+      echo 'echo ""'; \
+      echo 'echo "=== WASM Toolchain (optional cross-GHC) ==="'; \
+      echo 'wasm32-wasi-ghc-9.12.2.20250327 --version || echo "WASM GHC not available"'; \
+      echo 'wasm-ld --version || echo "WASM linker not available"'; \
+    } >> ~/.local/bin/show-haskell-versions && \
+    chmod +x ~/.local/bin/show-haskell-versions
 # Create usage documentation
-RUN echo "# Haskell Layer: GHC 9.12.2 with WASM Support" > ~/README-haskell.md && \
-    echo "- GHC 9.12.2 with native WebAssembly support" >> ~/README-haskell.md && \
-    echo "- Cabal 3.16.0.0 for package management" >> ~/README-haskell.md && \
-    echo "- Stack 3.7.1 for project management" >> ~/README-haskell.md && \
-    echo "- Stack 3.7.1 for project management" >> ~/README-haskell.md && \
-    echo "- Ormolu for code formatting" >> ~/README-haskell.md && \
+RUN echo "# Haskell layer (toolchain pinned in build_context/versions.env)" > ~/README-haskell.md && \
+    echo "- GHC, Cabal, Stack, HLS: see repository versions.env / image labels" >> ~/README-haskell.md && \
+    echo "- Optional wasm32-wasi GHC via ghc-wasm-meta (may differ from host GHC)" >> ~/README-haskell.md && \
+    echo "- Ormolu installed to ~/.local/bin" >> ~/README-haskell.md && \
     echo "- Python 3 with virtual environment for CI tools" >> ~/README-haskell.md && \
     echo "- Node.js and npm for web development" >> ~/README-haskell.md && \
     echo "- Pre-loaded common Haskell dependencies for faster builds" >> ~/README-haskell.md && \
-    echo "- Pre-installed web frameworks (wreq, wai, warp, websockets, miso)" >> ~/README-haskell.md && \
+    echo "- Pre-installed web stack (http-client, wai, warp, websockets, miso; wreq not in preload on GHC 9.14)" >> ~/README-haskell.md && \
     echo "- Pre-installed XML/HTML processing (xml-conduit, html-conduit, tagsoup)" >> ~/README-haskell.md && \
     echo "- Pre-installed Python development libraries for FFI support" >> ~/README-haskell.md && \
     echo "- Miso frontend framework for web development" >> ~/README-haskell.md && \
@@ -361,8 +326,8 @@ RUN if [ "${WITH_HLS}" != "1" ]; then \
       rm -f ~/.ghcup/bin/hls* 2>/dev/null || true; \
     fi
 
-# 3) Purge cabal store and index caches (no globally installed libs)
-RUN cabal store gc --prune=all || true && rm -rf ~/.cache/* ~/.cabal/packages || true
+# 3) Keep ~/.cabal/store and ~/.cabal/packages for warm CI (reuse prebuilt deps + index).
+RUN rm -rf ~/.cache/* || true
 
 # 4) Remove build artifacts if any slipped in
 RUN rm -rf ~/dist-newstyle ~/Main.hs ~/Main.o || true
@@ -371,7 +336,7 @@ RUN rm -rf ~/dist-newstyle ~/Main.hs ~/Main.o || true
 USER root
 RUN set -eux; \
     find /home/dev/.ghcup/bin -maxdepth 1 -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true; \
-    strip --strip-unneeded /usr/local/bin/ormolu 2>/dev/null || true
+    strip --strip-unneeded /home/dev/.local/bin/ormolu 2>/dev/null || true
 
 # 6) System cruft (docs, manpages) – keep minimal runtime libs
 RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info || true
@@ -381,7 +346,7 @@ RUN rm -rf /usr/share/doc /usr/share/man /usr/share/info || true
 # Labels for better image management
 LABEL maintainer="git-steb"
 LABEL org.opencontainers.image.source="https://github.com/git-steb/haskell-tex-dev"
-LABEL org.opencontainers.image.description="Haskell layer with GHC 9.12.2 and WASM support"
+LABEL org.opencontainers.image.description="Haskell layer with GHC 9.14.x (see versions.env) and optional WASM cross-GHC"
 LABEL org.opencontainers.image.title="Haskell TeX Dev - Haskell Layer"
 LABEL layer="haskell"
 LABEL features="haskell,ghc,wasm,wasm32-wasi,cabal,stack,ghcup"
