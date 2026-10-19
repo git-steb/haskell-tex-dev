@@ -38,9 +38,9 @@ if [[ ! -f "$VERSIONS_ENV" ]]; then
   exit 1
 fi
 
-# shellcheck source=/dev/null
 set -a
 # versions.env is KEY=value (no export lines required)
+# shellcheck source=/dev/null
 source "$VERSIONS_ENV"
 set +a
 
@@ -74,7 +74,8 @@ ensure_ghcup() {
   fi
   local ghcup_bin="${GHCUP_INSTALL_BASE_PREFIX:-$HOME/.ghcup}/bin/ghcup"
   if [[ -x "$ghcup_bin" ]]; then
-    export PATH="$(dirname "$ghcup_bin"):$PATH"
+    PATH="$(dirname "$ghcup_bin"):$PATH"
+    export PATH
     return 0
   fi
   echo "ghcup not found. Install minimal GHCup bootstrap, then re-run:" >&2
@@ -114,39 +115,55 @@ fi
 install_ormolu_bindist() {
   local dest="${HOME}/.local/bin"
   local asset
-  case "$(uname -s)-$(uname -m)" in
-    Linux-x86_64) asset=ormolu-x86_64-linux.zip ;;
-    Darwin-arm64|Darwin-aarch64) asset=ormolu-aarch64-darwin.zip ;;
-    Darwin-x86_64) asset=ormolu-x86_64-darwin.zip ;;
-    *) echo "No official Ormolu bindist for $(uname -s)-$(uname -m)." >&2; return 1 ;;
-  esac
+  asset="$(ormolu_asset)"
   local url="https://github.com/tweag/ormolu/releases/download/${ORMOLU_VERSION}/${asset}"
   local tmp
   tmp="$(mktemp)"
   curl -fsSL "$url" -o "$tmp"
-  # Replace atomically: previous release archives may leave a read-only binary.
+  # Stage the complete bindist. macOS archives include dylibs referenced via
+  # @executable_path, so extracting only `ormolu` produces a binary that aborts
+  # at launch. Replace support files first and the executable last.
   python3 - "$tmp" "$dest" <<'PY'
 import os, pathlib, sys, tempfile, zipfile
 archive, destination = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-temporary = None
 try:
-    with zipfile.ZipFile(archive) as release, tempfile.NamedTemporaryFile(
-        dir=destination, prefix=".ormolu-", delete=False
-    ) as output:
-        temporary = pathlib.Path(output.name)
-        output.write(release.read("ormolu"))
-    temporary.chmod(0o755)
-    os.replace(temporary, destination / "ormolu")
+    with zipfile.ZipFile(archive) as release, tempfile.TemporaryDirectory(
+        dir=destination, prefix=".ormolu-"
+    ) as staging_name:
+        staging = pathlib.Path(staging_name)
+        members = []
+        for info in release.infolist():
+            if info.is_dir():
+                continue
+            name = pathlib.PurePosixPath(info.filename)
+            if len(name.parts) != 1:
+                raise RuntimeError(f"unexpected path in Ormolu archive: {info.filename}")
+            target = staging / name.name
+            target.write_bytes(release.read(info))
+            target.chmod(0o755 if name.name == "ormolu" else 0o644)
+            members.append(name.name)
+        if "ormolu" not in members:
+            raise RuntimeError("Ormolu archive contains no ormolu executable")
+        for name in sorted(member for member in members if member != "ormolu"):
+            os.replace(staging / name, destination / name)
+        os.replace(staging / "ormolu", destination / "ormolu")
 finally:
-    if temporary is not None:
-        temporary.unlink(missing_ok=True)
     archive.unlink(missing_ok=True)
 PY
   "${dest}/ormolu" --version
 }
 
+ormolu_asset() {
+  case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64) echo ormolu-x86_64-linux.zip ;;
+    Darwin-arm64|Darwin-aarch64) echo ormolu-aarch64-darwin.zip ;;
+    Darwin-x86_64) echo ormolu-x86_64-darwin.zip ;;
+    *) echo "No official Ormolu bindist for $(uname -s)-$(uname -m)." >&2; return 1 ;;
+  esac
+}
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "[dry-run] curl … ormolu-x86_64-linux.zip → ~/.local/bin (ORMOLU_VERSION=${ORMOLU_VERSION})"
+  echo "[dry-run] curl … $(ormolu_asset) → ~/.local/bin (ORMOLU_VERSION=${ORMOLU_VERSION})"
 else
   install_ormolu_bindist
 fi

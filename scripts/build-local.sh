@@ -7,16 +7,31 @@ set -euo pipefail
 
 VERSION="${1:-$(cat VERSION 2>/dev/null || echo '1.3.0')}"
 LOCAL_TAG="local/haskell-tex-dev"
+# Published images are currently Linux x86_64. Pin the same platform locally
+# so Apple Silicon uses Docker Desktop emulation instead of trying to execute
+# the amd64-only fixuid and TeX assets as native arm64 binaries.
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 
 docker_bin() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "❌ Error: docker is not installed or not on PATH." >&2
+    if [[ "$(uname -s)" = "Darwin" ]]; then
+      echo "Start/install Docker Desktop, then re-run this command." >&2
+    fi
+    exit 1
+  fi
   if docker info >/dev/null 2>&1; then
     docker "$@"
+  elif [[ "$(uname -s)" = "Darwin" ]]; then
+    echo "❌ Error: Docker Desktop is not running or its context is unavailable." >&2
+    exit 1
   else
     sudo docker "$@"
   fi
 }
 
 echo "🔨 Building Docker images locally (version: $VERSION)"
+echo "🖥️  Target platform: $DOCKER_PLATFORM"
 echo "📋 This will build: base -> haskell -> tex (layered approach)"
 echo ""
 
@@ -28,14 +43,13 @@ fi
 
 # Build base layer
 echo "🏗️  Building base layer..."
-sudo docker build \
+if docker_bin build \
+    --platform "$DOCKER_PLATFORM" \
     --file build_context/Dockerfile.base \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:base-${VERSION}" \
     --tag "${LOCAL_TAG}:base-latest" \
-    .
-
-if [[ $? -eq 0 ]]; then
+    .; then
     echo "✅ Base layer built successfully"
 else
     echo "❌ Base layer build failed"
@@ -45,15 +59,14 @@ fi
 # Build haskell layer (depends on base)
 echo ""
 echo "🏗️  Building haskell layer..."
-docker_bin build \
+if docker_bin build \
+    --platform "$DOCKER_PLATFORM" \
     --file build_context/Dockerfile.haskell \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:base-${VERSION}" \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:haskell-${VERSION}" \
     --tag "${LOCAL_TAG}:haskell-latest" \
-    .
-
-if [[ $? -eq 0 ]]; then
+    .; then
     echo "✅ Haskell layer built successfully"
 else
     echo "❌ Haskell layer build failed"
@@ -63,16 +76,15 @@ fi
 # Build tex layer (depends on haskell)
 echo ""
 echo "🏗️  Building tex layer..."
-docker_bin build \
+if docker_bin build \
+    --platform "$DOCKER_PLATFORM" \
     --file build_context/Dockerfile.tex \
     --build-arg BASE_IMAGE="${LOCAL_TAG}:haskell-${VERSION}" \
     --build-arg VERSION="$VERSION" \
     --tag "${LOCAL_TAG}:tex-${VERSION}" \
     --tag "${LOCAL_TAG}:tex-latest" \
     --tag "${LOCAL_TAG}:latest" \
-    .
-
-if [[ $? -eq 0 ]]; then
+    .; then
     echo "✅ Tex layer built successfully"
 else
     echo "❌ Tex layer build failed"

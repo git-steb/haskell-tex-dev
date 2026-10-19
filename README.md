@@ -113,18 +113,29 @@ chmod +x scripts/install-host-toolchain.sh
 ./scripts/install-host-toolchain.sh
 ```
 
-This reads **`build_context/versions.env`** and installs/sets **GHC**, **cabal-install**, **Stack**, **HLS**, then **Ormolu** via Cabal (matching the Haskell Docker layer). Use `--skip-hls` or `--dry-run` as needed.
+This reads **`build_context/versions.env`** and installs/sets **GHC**, **cabal-install**, **Stack**, and **HLS** with GHCup, then installs the pinned official **Ormolu** bindist (matching the Haskell Docker layer). Use `--skip-hls` or `--dry-run` as needed.
+
+On macOS, the wrapper also checks the native prerequisites and bootstraps GHCup when necessary:
+
+```bash
+./scripts/install-macos-ghcup.sh
+./scripts/test-host-toolchain.sh
+```
+
+The smoke test builds and runs a temporary Cabal package. It does not enter or modify a consumer repository.
 
 ### **Building Images Locally**
 ```bash
-# Build all layers
-./build-parallel.sh
+# Build the release layers with the same tags and platform policy
+./scripts/build-local.sh 1.4.0
 
-# Build specific layer
-docker build -f Dockerfile.haskell -t haskell-tex-dev:haskell .
-docker build -f Dockerfile.tex -t haskell-tex-dev:tex .
-docker build -f Dockerfile.full -t haskell-tex-dev:full .
+# Or build a specific layer from the build context
+docker build --platform linux/amd64 -f build_context/Dockerfile.haskell .
 ```
+
+The v1.4.0 release images currently target `linux/amd64`. On Apple Silicon,
+`build-local.sh` therefore uses Docker Desktop's amd64 emulation by default.
+Set `DOCKER_PLATFORM` only when the image assets support another platform.
 
 ### **Publishing to GHCR**
 ```bash
@@ -164,7 +175,7 @@ container:
 - **Independent updates** for Haskell vs TeX toolchains
 - **Flexible deployment** - choose what you need
 
-## v1.4.0 (in development)
+## v1.4.0
 
 Native host installation remains the primary workflow:
 
