@@ -252,6 +252,6 @@ Apache License 2.0 - see [LICENSE](LICENSE) file for details.
 Push an `env/**` branch to build and test the three image stages on GitHub
 Actions. Candidate images use `base-<commit>`, `haskell-<commit>` and
 `tex-<commit>` tags; branch builds leave version and latest tags unchanged.
-After Homeomorphosis validation, merging the same changes to `main` rebuilds
+Merging the candidate changes to `main` rebuilds
 with the stage caches, tests the exact full-image digest, then promotes the
 version and latest tags.
