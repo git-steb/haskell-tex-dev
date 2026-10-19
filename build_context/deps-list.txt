@@ -43,7 +43,7 @@ http-client
 http-conduit
 conduit
 conduit-extra
-# wreq: omitted from preload — does not build on GHC 9.14 yet (cryptonite/memory / AWS helper); use http-client in-app
+# Homeomorphosis uses http-conduit directly; no wreq/OAuth/RSA preload.
 
 # --- web stack (Servant/Wai/Warp + Miso) ---
 wai
@@ -65,10 +65,8 @@ safe
 split
 
 # --- crypto ---
-cryptonite
-memory
-crypto-api
-crypto-pubkey-types
+crypton
+ram
 
 # --- XML / HTML ---
 xml
@@ -80,13 +78,11 @@ tagsoup
 blaze-html
 blaze-markup
 
-# --- optics / misc ---
-lens
+# --- misc ---
 regex-tdfa
 random
 QuickCheck
 
-# --- pandoc / oauth (direct-install friends) ---
+# --- document / cache support ---
 pandoc-types
-authenticate-oauth
 expiring-cache-map

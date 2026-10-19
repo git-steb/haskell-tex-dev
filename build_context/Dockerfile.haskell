@@ -19,7 +19,9 @@ RUN set -a && . /tmp/versions.env && set +a && \
     echo "export CABAL_VERSION=$CABAL_VERSION" >> /tmp/ghc_env.sh && \
     echo "export STACK_VERSION=$STACK_VERSION" >> /tmp/ghc_env.sh && \
     echo "export HLS_VERSION=$HLS_VERSION" >> /tmp/ghc_env.sh && \
-    echo "export ORMOLU_VERSION=$ORMOLU_VERSION" >> /tmp/ghc_env.sh
+    echo "export ORMOLU_VERSION=$ORMOLU_VERSION" >> /tmp/ghc_env.sh && \
+    echo "export GHCUP_METADATA_URL=$GHCUP_METADATA_URL" >> /tmp/ghc_env.sh && \
+    echo "export CABAL_INDEX_STATE=$CABAL_INDEX_STATE" >> /tmp/ghc_env.sh
 
 # Root for system dependencies
 USER root
@@ -63,17 +65,16 @@ RUN . /tmp/ghc_env.sh && \
     echo "🔍 Debug: CABAL_VERSION loaded: $CABAL_VERSION" && \
     echo "🔍 Debug: STACK_VERSION loaded: $STACK_VERSION"
 
-RUN . /tmp/ghc_env.sh && ghcup install cabal ${CABAL_VERSION} && ghcup set cabal ${CABAL_VERSION}
-RUN . /tmp/ghc_env.sh && ghcup install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
+RUN . /tmp/ghc_env.sh && ghcup --url-source="${GHCUP_METADATA_URL}" install cabal ${CABAL_VERSION} && ghcup set cabal ${CABAL_VERSION}
+RUN . /tmp/ghc_env.sh && ghcup --url-source="${GHCUP_METADATA_URL}" install stack ${STACK_VERSION} && ghcup set stack ${STACK_VERSION}
 RUN . /tmp/ghc_env.sh && echo "🔍 Debug: Installing GHC version: ${GHC_VERSION}" && \
-    ghcup install ghc ${GHC_VERSION} && \
+    ghcup --url-source="${GHCUP_METADATA_URL}" install ghc ${GHC_VERSION} && \
     ghcup set ghc ${GHC_VERSION} && \
     echo "🔍 Debug: Verifying GHC installation..." && \
     ghc --version && \
     echo "🔍 Debug: Current GHC version from ghcup:" && \
     ghcup list -t ghc | grep "✔" && \
     echo "🔍 Debug: Expected GHC version: ${GHC_VERSION}"
-RUN ghc --supported-targets | grep -i wasm || echo "WASM target not found"
 
 # Verify GHC version is correct
 RUN . /tmp/ghc_env.sh && echo "🔍 Final GHC version verification:" && \
@@ -92,78 +93,21 @@ RUN . /tmp/ghc_env.sh && echo "🔍 Final GHC version verification:" && \
 # Haskell Language Server (bindists matched to GHC_VERSION via ghcup)
 RUN . /tmp/ghc_env.sh && \
     if [ "${WITH_HLS}" = "1" ]; then \
-      ghcup install hls "${HLS_VERSION}" && ghcup set hls "${HLS_VERSION}"; \
+      ghcup --url-source="${GHCUP_METADATA_URL}" install hls "${HLS_VERSION}" && ghcup set hls "${HLS_VERSION}"; \
     else \
       echo "Skipping HLS (WITH_HLS!=1)"; \
     fi
 
-# Install WASM GHC toolchain via ghcup
-# This enables compilation to WebAssembly for web demos and embedded use
-RUN echo "🔧 Setting up WASM toolchain via ghcup..." && \
-    # Install WASM SDK and tools using the bootstrap method
-    curl https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/bootstrap.sh | SKIP_GHC=1 sh && \
-    # Add WASM release channel to ghcup
-    ghcup config add-release-channel https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/ghcup-wasm-0.0.9.yaml && \
-    # Set up environment for WASM toolchain (similar to macOS setup)
-    export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH" && \
-    export WASI_SYSROOT="${HOME}/.ghc-wasm/wasi-sdk/share/wasi-sysroot" && \
-    export CC="${HOME}/.ghc-wasm/wasi-sdk/bin/clang" && \
-    export CXX="${HOME}/.ghc-wasm/wasi-sdk/bin/clang++" && \
-    export AR="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-ar" && \
-    export NM="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-nm" && \
-    export RANLIB="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-ranlib" && \
-    export STRIP="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-strip" && \
-    # Create missing tool symlinks that the configure script expects
-    ln -sf ~/.ghc-wasm/wasi-sdk/bin/nm ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-nm && \
-    ln -sf ~/.ghc-wasm/wasi-sdk/bin/strip ~/.ghc-wasm/wasi-sdk/bin/wasm32-wasi-strip && \
-    # Debug: Check what tools are available
-    echo "🔍 Debug: Checking WASM tools..." && \
-    ls -la ~/.ghc-wasm/wasi-sdk/bin/ | grep -E "(nm|strip|clang|wasm)" && \
-    echo "🔍 Debug: Environment variables:" && \
-    echo "PATH: $PATH" | tr ':' '\n' | grep -E "(ghc-wasm|wasi)" && \
-    echo "WASI_SYSROOT: $WASI_SYSROOT" && \
-    echo "CC: $CC" && \
-    echo "CXX: $CXX" && \
-            # Check available WASM GHC versions first
-        echo "🔧 Checking available WASM GHC versions..." && \
-        ghcup list -t ghc | grep -i wasm || echo "No WASM versions listed" && \
-        echo "🔧 Attempting WASM GHC installation..." && \
-        # Try different version formats that might be available
-        if ghcup install ghc wasm32-wasi-9.12.2.20250327 --verbose; then \
-            echo "✅ WASM GHC toolchain installed successfully (format: 9.12.2.20250327)"; \
-        elif ghcup install ghc wasm32-wasi-9.10.1.20240511 --verbose; then \
-            echo "✅ WASM GHC toolchain installed successfully (format: 9.10.1.20240511)"; \
-        elif ghcup install ghc wasm32-wasi-9.8.2.20240223 --verbose; then \
-            echo "✅ WASM GHC toolchain installed successfully (format: 9.8.2.20240223)"; \
-        else \
-            echo "⚠️  WASM GHC installation failed for all attempted versions" && \
-            echo "📋 Available GHC versions:" && \
-            ghcup list -t ghc || echo "Failed to list GHC versions" && \
-            echo "📋 GHCup logs directory:" && \
-            ls -la /home/dev/.ghcup/logs/ 2>/dev/null || echo "No logs directory found" && \
-            echo "📋 Recent log files:" && \
-            find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec ls -la {} \; 2>/dev/null | tail -5 || echo "No log files found" && \
-            echo "📋 Latest log content:" && \
-            find /home/dev/.ghcup/logs/ -name "*.log" -type f -exec tail -20 {} \; 2>/dev/null | head -50 || echo "No log content found" && \
-            echo "⚠️  Continuing without WASM GHC - you can install it manually later" && \
-            echo "💡 Check available versions with: ghcup list -t ghc | grep wasm"; \
-        fi
-
-# Set up WASM environment variables for all sessions
-RUN echo 'export PATH="${HOME}/.ghc-wasm/wasi-sdk/bin:$PATH"' >> ~/.bashrc && \
-    echo 'export WASI_SYSROOT="${HOME}/.ghc-wasm/wasi-sdk/share/wasi-sysroot"' >> ~/.bashrc && \
-    echo 'export CC="${HOME}/.ghc-wasm/wasi-sdk/bin/clang"' >> ~/.bashrc && \
-    echo 'export CXX="${HOME}/.ghc-wasm/wasi-sdk/bin/clang++"' >> ~/.bashrc && \
-    echo 'export AR="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-ar"' >> ~/.bashrc && \
-    echo 'export NM="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-nm"' >> ~/.bashrc && \
-    echo 'export RANLIB="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-ranlib"' >> ~/.bashrc && \
-    echo 'export STRIP="${HOME}/.ghc-wasm/wasi-sdk/bin/llvm-strip"' >> ~/.bashrc
+# Install the pinned cross profile, scoped to explicit wasm32-wasi-* commands.
+# Its Cabal/SDK environment never overrides the native compiler environment.
+COPY scripts/install-wasm-toolchain.sh /tmp/install-wasm-toolchain.sh
+RUN VERSIONS_ENV=/tmp/versions.env bash /tmp/install-wasm-toolchain.sh
 
 ENV PATH="/home/dev/.cabal/bin:/home/dev/.ghcup/bin:/home/dev/.local/bin:$PATH"
 # Smoke test: GHC, Cabal, optional HLS (ghcup installs haskell-language-server*)
 # Ormolu is installed in the next layer after cabal update
 RUN ghc --version && cabal --version && \
-    ( [ "${WITH_HLS}" = "1" ] && ( haskell-language-server-wrapper --version || haskell-language-server --version ) || echo "HLS not installed" ) || true
+    if [ "${WITH_HLS}" = "1" ]; then haskell-language-server-wrapper --version; fi
 
 # Set up Cabal configuration (using default configuration)
 RUN mkdir -p ~/.cabal
@@ -181,14 +125,14 @@ COPY build_context/deps-list.txt /tmp/deps-list.txt
 # Broad dependency warm-cache for typical Haskell web + service builds
 
 # Create a temporary cabal project and pre-install dependencies
-RUN mkdir -p /tmp/preload-deps && \
+RUN . /tmp/ghc_env.sh && mkdir -p /tmp/preload-deps && \
     cd /tmp/preload-deps && \
     echo "packages: ." > cabal.project && \
     echo "with-compiler: ghc" >> cabal.project && \
-    echo "index-state: 2026-03-29T00:00:00Z" >> cabal.project && \
+    echo "index-state: ${CABAL_INDEX_STATE}" >> cabal.project && \
     echo "reorder-goals: True" >> cabal.project && \
     echo "max-backjumps: 20000" >> cabal.project && \
-    echo "allow-newer: uuid:time, *:base, *:template-haskell, monad-control:transformers-compat" >> cabal.project && \
+    echo "allow-newer: serialise:base, cborg:base" >> cabal.project && \
     echo "cabal-version: 2.0" > preload-deps.cabal && \
     echo "name:                preload-deps" >> preload-deps.cabal && \
     echo "version:             0.1.0" >> preload-deps.cabal && \
@@ -255,8 +199,7 @@ RUN mkdir -p ~/.local/bin && \
       echo '/home/dev/.local/bin/ormolu --version || echo "ormolu not found"'; \
       echo 'echo ""'; \
       echo 'echo "=== WASM Toolchain (optional cross-GHC) ==="'; \
-      echo 'wasm32-wasi-ghc-9.12.2.20250327 --version || echo "WASM GHC not available"'; \
-      echo 'wasm-ld --version || echo "WASM linker not available"'; \
+      echo 'wasm32-wasi-ghc --version'; \
     } >> ~/.local/bin/show-haskell-versions && \
     chmod +x ~/.local/bin/show-haskell-versions
 # Create usage documentation
@@ -267,14 +210,14 @@ RUN echo "# Haskell layer (toolchain pinned in build_context/versions.env)" > ~/
     echo "- Python 3 with virtual environment for CI tools" >> ~/README-haskell.md && \
     echo "- Node.js and npm for web development" >> ~/README-haskell.md && \
     echo "- Pre-loaded common Haskell dependencies for faster builds" >> ~/README-haskell.md && \
-    echo "- Pre-installed web stack (http-client, wai, warp, websockets, miso; wreq not in preload on GHC 9.14)" >> ~/README-haskell.md && \
+    echo "- Pre-installed web stack (http-client, http-conduit, wai, warp, websockets, miso)" >> ~/README-haskell.md && \
     echo "- Pre-installed XML/HTML processing (xml-conduit, html-conduit, tagsoup)" >> ~/README-haskell.md && \
     echo "- Pre-installed Python development libraries for FFI support" >> ~/README-haskell.md && \
     echo "- Miso frontend framework for web development" >> ~/README-haskell.md && \
     echo "- WebSocket and HTTP server libraries (wai, warp, websockets)" >> ~/README-haskell.md && \
     echo "- Serialization libraries (aeson, serialise, cborg)" >> ~/README-haskell.md && \
     echo "- Testing frameworks (hspec, tasty, quickcheck)" >> ~/README-haskell.md && \
-    echo "- Advanced type system libraries (lens, profunctors)" >> ~/README-haskell.md && \
+    echo "- Native HTTP/JSON integration (http-conduit, http-client, aeson)" >> ~/README-haskell.md && \
     echo "- jq and gh tools pre-installed in base layer" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
     echo "## Quick Start" >> ~/README-haskell.md && \
@@ -294,8 +237,8 @@ RUN echo "# Haskell layer (toolchain pinned in build_context/versions.env)" > ~/
     echo "" >> ~/README-haskell.md && \
     echo "### WebAssembly compilation:" >> ~/README-haskell.md && \
     echo "```bash" >> ~/README-haskell.md && \
-    echo "# WASM support temporarily disabled - will be added in future update" >> ~/README-haskell.md && \
-    echo "# ghc -target wasm32-wasi -o app.wasm Main.hs" >> ~/README-haskell.md && \
+    echo "# Use the isolated cross compiler; native ghc remains unchanged" >> ~/README-haskell.md && \
+    echo "wasm32-wasi-ghc -o app.wasm Main.hs" >> ~/README-haskell.md && \
     echo "```" >> ~/README-haskell.md && \
     echo "" >> ~/README-haskell.md && \
     echo "### Miso frontend development:" >> ~/README-haskell.md && \

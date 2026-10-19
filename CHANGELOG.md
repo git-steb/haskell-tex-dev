@@ -5,6 +5,26 @@ All notable changes to the haskell-tex-dev Docker image will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - Unreleased
+
+### Changed
+- Pin current Actions releases; PR builds use no registry credentials. Publish
+  candidate digests first, run native compiler/TeX smoke tests, then promote
+  tested release tags on main. `env/**` branches build candidate images without
+  moving release tags. Keep separate BuildKit caches for each layer.
+- Native GHC remains 9.14.1; upgrade Cabal to 3.18.2.0, HLS to 2.15.0.0,
+  Stack to 3.11.1 and Ormolu to 0.9.0.0.
+- Host and container installers share an immutable GHCup metadata snapshot.
+- Pin the preload Hackage index; replace blanket bound overrides with
+  `serialise:base` and `cborg:base`.
+- Replace the cryptonite preload with crypton and ram.
+- Drop unused Lens and legacy OAuth/RSA crypto preloads; Homeomorphosis uses
+  its existing http-conduit transport directly.
+- Install Ormolu host bindists for Linux x86_64 and macOS Intel/Apple Silicon.
+- Isolate the pinned GHC 9.14 WebAssembly toolchain, SDK and Cabal profile;
+  expose explicit `wasm32-wasi-*` commands without changing native CC.
+- Fail container smoke checks when requested HLS or cross tooling is unavailable.
+
 ## [1.3.0] - 2026-03-29
 
 ### Changed

@@ -3,163 +3,124 @@ name: build-and-publish
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "env/**"]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+# Finish any in-flight release before starting another promotion.
+concurrency:
+  group: environment-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  docker:
-    runs-on: ubuntu-latest
+  pull-request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Read version
-        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
-      
-      - name: Validate VERSION
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and test locally without registry credentials
+        shell: bash
         run: |
           set -euo pipefail
-          [[ -s VERSION ]] || { echo "VERSION empty"; exit 1; }
-          grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' VERSION || { echo "Bad VERSION format"; exit 1; }
-          echo "✅ VERSION validation passed: $VERSION"
-      
-      - uses: docker/setup-buildx-action@v3
-      
-      - uses: docker/login-action@v3
+          version=$(cat VERSION)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          docker build -f build_context/Dockerfile.base --build-arg VERSION="$version" -t env-base:test .
+          docker build -f build_context/Dockerfile.haskell --build-arg BASE_IMAGE=env-base:test --build-arg VERSION="$version" -t env-haskell:test .
+          docker build -f build_context/Dockerfile.tex --build-arg BASE_IMAGE=env-haskell:test --build-arg VERSION="$version" -t env-full:test .
+          docker run --rm -i env-full:test bash < scripts/test-release-image.sh
+
+  release:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/git-steb/haskell-tex-dev
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(cat VERSION)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          source build_context/versions.env
+          [[ "$version" == "$VERSION" ]]
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      # Build and push base layer
-      - name: Build and push base layer
-        uses: docker/build-push-action@v6
+      - name: Build base candidate
+        id: base
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: build_context/Dockerfile.base
-          build-args: VERSION=${{ env.VERSION }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
           push: true
-          tags: |
-            ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
-            ghcr.io/git-steb/haskell-tex-dev:base-latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: true
+          tags: ${{ env.IMAGE }}:base-${{ github.sha }}
+          cache-from: type=gha,scope=base
+          cache-to: type=gha,mode=max,scope=base
+          provenance: mode=max
           sbom: true
-
-      # Build and push haskell layer
-      - name: Build and push haskell layer
-        uses: docker/build-push-action@v6
+      - name: Build haskell candidate
+        id: haskell
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: build_context/Dockerfile.haskell
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }}
             VERSION=${{ env.VERSION }}
+            BASE_IMAGE=${{ env.IMAGE }}@${{ steps.base.outputs.digest }}
           push: true
-          tags: |
-            ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
-            ghcr.io/git-steb/haskell-tex-dev:haskell-latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: true
+          tags: ${{ env.IMAGE }}:haskell-${{ github.sha }}
+          cache-from: type=gha,scope=haskell
+          cache-to: type=gha,mode=max,scope=haskell
+          provenance: mode=max
           sbom: true
-
-      # Build and push tex layer (full image)
-      - id: tex
-        name: Build and push tex layer
-        uses: docker/build-push-action@v6
+      - name: Build tex candidate
+        id: tex
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: build_context/Dockerfile.tex
           build-args: |
-            BASE_IMAGE=ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }}
             VERSION=${{ env.VERSION }}
+            BASE_IMAGE=${{ env.IMAGE }}@${{ steps.haskell.outputs.digest }}
           push: true
-          tags: |
-            ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }}
-            ghcr.io/git-steb/haskell-tex-dev:tex-latest
-            ghcr.io/git-steb/haskell-tex-dev:latest
-            ghcr.io/git-steb/haskell-tex-dev:v${{ env.VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: true
+          tags: ${{ env.IMAGE }}:tex-${{ github.sha }}
+          cache-from: type=gha,scope=tex
+          cache-to: type=gha,mode=max,scope=tex
+          provenance: mode=max
           sbom: true
-
-      - name: Test image functionality
+      - name: Test exact candidate digest
+        env:
+          DIGEST: ${{ steps.tex.outputs.digest }}
+        run: docker run --rm -i "$IMAGE@$DIGEST" bash < scripts/test-release-image.sh
+      - name: Promote tested digests
+        if: github.ref == 'refs/heads/main'
+        env:
+          BASE_DIGEST: ${{ steps.base.outputs.digest }}
+          HASKELL_DIGEST: ${{ steps.haskell.outputs.digest }}
+          FULL_DIGEST: ${{ steps.tex.outputs.digest }}
+        shell: bash
         run: |
           set -euo pipefail
-          echo "Testing image functionality..."
-          echo "Version: $VERSION"
-          
-          # Test that the base image has the required tools
-          echo "Testing base image tools..."
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }} jq --version
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:base-${{ github.sha }} gh --version
-          
-          # Test that the haskell image has the required tools
-          echo "Testing haskell image tools..."
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }} ghc --version
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:haskell-${{ github.sha }} cabal --version
-          
-          # Test that the tex image has the required tools
-          echo "Testing tex image tools..."
-          docker run --rm ghcr.io/git-steb/haskell-tex-dev:tex-${{ github.sha }} latexmk -v
-          
-          echo "✅ All builds and tests passed!"
-
-      # Atomic tagging - only on main branch pushes (after tests pass)
-      - name: Tag latest and version tags atomically
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          set -euo pipefail
-          IMG="ghcr.io/git-steb/haskell-tex-dev"
-          DIGEST="${{ steps.tex.outputs.digest }}"
-          
-          echo "Creating atomic tags for version $VERSION using digest $DIGEST..."
-          
-          # Tag base layer
-          docker buildx imagetools create \
-            -t "$IMG:base-latest" \
-            "$IMG:base-${{ github.sha }}"
-          
-          # Tag haskell layer
-          docker buildx imagetools create \
-            -t "$IMG:haskell-latest" \
-            "$IMG:haskell-${{ github.sha }}"
-          
-          # Tag tex layer (full image) with all tags using exact digest
-          docker buildx imagetools create \
-            -t "$IMG:tex-latest" \
-            -t "$IMG:latest" \
-            -t "$IMG:v$VERSION" \
-            "$IMG@${DIGEST}"
-          
-          echo "✅ Atomic tagging completed"
-
-      - name: Build summary
-        if: always()
-        run: |
-          echo "## Build and Publish Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version**: v$VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "**Event**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "✅ **Base layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Haskell layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **TeX layer**: Built successfully" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Tool verification**: All tools available" >> $GITHUB_STEP_SUMMARY
-            if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-              echo "✅ **Published tags**: latest, v$VERSION" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "ℹ️ **Published**: No (PR build)" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "❌ **Build failed**" >> $GITHUB_STEP_SUMMARY
-            echo "Check the logs above for details." >> $GITHUB_STEP_SUMMARY
-          fi
+          docker buildx imagetools create -t "$IMAGE:base-latest" "$IMAGE@$BASE_DIGEST"
+          docker buildx imagetools create -t "$IMAGE:haskell-latest" "$IMAGE@$HASKELL_DIGEST"
+          docker buildx imagetools create -t "$IMAGE:tex-latest" -t "$IMAGE:full-latest" -t "$IMAGE:latest" -t "$IMAGE:v$VERSION" "$IMAGE@$FULL_DIGEST"
+          {
+            echo "## Tested environment v$VERSION"
+            echo "Commit: $GITHUB_SHA"
+            echo "Image: $IMAGE@$FULL_DIGEST"
+            echo "Release tag: $IMAGE:v$VERSION"
+          } >> "$GITHUB_STEP_SUMMARY"

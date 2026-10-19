@@ -44,10 +44,10 @@ docker run -it --rm -v $(pwd):/workspace ghcr.io/git-steb/haskell-tex-dev:tex-la
 
 ### **Haskell Layer**
 - **GHC 9.14.1** (pinned in `build_context/versions.env`; installable via GHCup)
-- **Cabal 3.16.1.0** for package management
-- **HLS 2.13.0.0** for IDE support (official bindists include GHC 9.14.1; some plugins are still catching up—see HLS release notes)
-- **Stack 3.9.3** for project management
-- **Ormolu** for code formatting (official **Linux x86_64** release zip into `~/.local/bin`, not `cabal install`, so it works on GHC 9.14)
+- **Cabal 3.18.2.0** for package management
+- **HLS 2.15.0.0** for IDE support (official bindists support GHC 9.14.1)
+- **Stack 3.11.1** for project management
+- **Ormolu 0.9.0.0** for code formatting (official Linux x86_64 and macOS Intel/Apple Silicon host bindists into `~/.local/bin`)
 
 ### **TeX Layer**
 - **TeX Live** with LuaTeX for full Unicode support
@@ -164,7 +164,30 @@ container:
 - **Independent updates** for Haskell vs TeX toolchains
 - **Flexible deployment** - choose what you need
 
-## 🆕 **What's New in v1.3.0**
+## v1.4.0 (in development)
+
+Native host installation remains the primary workflow:
+
+```bash
+bash scripts/install-host-toolchain.sh
+# Optional isolated WebAssembly profile:
+bash scripts/install-wasm-toolchain.sh
+wasm32-wasi-cabal update
+```
+
+GHC 9.14.1, Cabal 3.18.2.0, HLS 2.15.0.0, Stack 3.11.1 and Ormolu
+0.9.0.0 share an immutable GHCup metadata snapshot. The dependency preload
+uses a pinned Hackage index and scoped `serialise:base` / `cborg:base`
+exceptions. Cryptographic hashing uses `crypton` and `ram`. Homeomorphosis
+uses `http-conduit` directly; unused Lens and legacy OAuth/RSA packages are
+removed from the preload.
+
+The optional WebAssembly profile has its own SDK and Cabal 3.14.2.0,
+pinned to upstream's supported cross-toolchain configuration. Invoke
+`wasm32-wasi-ghc` or `wasm32-wasi-cabal`; its compiler environment stays
+inside these commands. Native `ghc`, `cabal` and `CC` remain independent.
+
+## Earlier: v1.3.0
 
 - **Toolchain refresh**: GHC **9.14.1**, Cabal **3.16.1.0**, Stack **3.9.3**, HLS **2.13.0.0** (pinned in `build_context/versions.env`, installed via GHCup)
 - **HLS + Ormolu**: HLS is installed with `ghcup`; Ormolu is built with Cabal into `~/.local/bin`
@@ -223,3 +246,12 @@ Apache License 2.0 - see [LICENSE](LICENSE) file for details.
 ---
 
 **Built with ❤️ for the Haskell and TeX communities**
+
+### Candidate image validation
+
+Push an `env/**` branch to build and test the three image stages on GitHub
+Actions. Candidate images use `base-<commit>`, `haskell-<commit>` and
+`tex-<commit>` tags; branch builds leave version and latest tags unchanged.
+After Homeomorphosis validation, merging the same changes to `main` rebuilds
+with the stage caches, tests the exact full-image digest, then promotes the
+version and latest tags.

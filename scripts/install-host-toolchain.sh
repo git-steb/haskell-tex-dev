@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install GHC, Cabal, Stack, and HLS on the host to match build_context/versions.env
-# (same pins as the container image tagged from VERSION, e.g. v1.3.0).
+# (same pins as the container image tagged from VERSION, e.g. v1.4.0).
 #
-# Prerequisites: curl. Installs ghcup via https://get-ghcup.haskell.org if missing.
+# Prerequisites: curl, python3 and GHCup (bootstrap instructions below).
 #
 # Usage:
 #   ./scripts/install-host-toolchain.sh
@@ -91,17 +91,17 @@ fi
 
 run ghcup upgrade || true
 
-run ghcup install cabal "${CABAL_VERSION}"
+run ghcup --url-source="${GHCUP_METADATA_URL:?}" install cabal "${CABAL_VERSION}"
 run ghcup set cabal "${CABAL_VERSION}"
 
-run ghcup install stack "${STACK_VERSION}"
+run ghcup --url-source="${GHCUP_METADATA_URL}" install stack "${STACK_VERSION}"
 run ghcup set stack "${STACK_VERSION}"
 
-run ghcup install ghc "${GHC_VERSION}"
+run ghcup --url-source="${GHCUP_METADATA_URL}" install ghc "${GHC_VERSION}"
 run ghcup set ghc "${GHC_VERSION}"
 
 if [[ "$SKIP_HLS" -eq 0 ]]; then
-  run ghcup install hls "${HLS_VERSION}"
+  run ghcup --url-source="${GHCUP_METADATA_URL}" install hls "${HLS_VERSION}"
   run ghcup set hls "${HLS_VERSION}"
 fi
 
@@ -113,24 +113,35 @@ fi
 
 install_ormolu_bindist() {
   local dest="${HOME}/.local/bin"
-  local url="https://github.com/tweag/ormolu/releases/download/${ORMOLU_VERSION}/ormolu-x86_64-linux.zip"
+  local asset
+  case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64) asset=ormolu-x86_64-linux.zip ;;
+    Darwin-arm64|Darwin-aarch64) asset=ormolu-aarch64-darwin.zip ;;
+    Darwin-x86_64) asset=ormolu-x86_64-darwin.zip ;;
+    *) echo "No official Ormolu bindist for $(uname -s)-$(uname -m)." >&2; return 1 ;;
+  esac
+  local url="https://github.com/tweag/ormolu/releases/download/${ORMOLU_VERSION}/${asset}"
   local tmp
   tmp="$(mktemp)"
-  case "$(uname -s)-$(uname -m)" in
-    Linux-x86_64) ;;
-    *)
-      echo "Ormolu: no official Linux bindist for $(uname -m); skipping (container: same)." >&2
-      return 0
-      ;;
-  esac
   curl -fsSL "$url" -o "$tmp"
-  if command -v unzip >/dev/null 2>&1; then
-    unzip -qo "$tmp" -d "$dest"
-  else
-    python3 -c "import zipfile, sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$tmp" "$dest"
-  fi
-  rm -f "$tmp"
-  chmod +x "${dest}/ormolu"
+  # Replace atomically: previous release archives may leave a read-only binary.
+  python3 - "$tmp" "$dest" <<'PY'
+import os, pathlib, sys, tempfile, zipfile
+archive, destination = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+temporary = None
+try:
+    with zipfile.ZipFile(archive) as release, tempfile.NamedTemporaryFile(
+        dir=destination, prefix=".ormolu-", delete=False
+    ) as output:
+        temporary = pathlib.Path(output.name)
+        output.write(release.read("ormolu"))
+    temporary.chmod(0o755)
+    os.replace(temporary, destination / "ormolu")
+finally:
+    if temporary is not None:
+        temporary.unlink(missing_ok=True)
+    archive.unlink(missing_ok=True)
+PY
   "${dest}/ormolu" --version
 }
 
